@@ -84,7 +84,7 @@ As an example, boot.exe and build.exe are less strict about memory allocations. 
 	- Runs *project*.exe (if -run=1)
 
 **Example Build Command:**
-> boot.bat -project=pacman -toolchain=llvm -gfx=d3d11 -config=release -run=1
+> boot.bat -project=asteroids -toolchain=llvm -gfx=d3d11 -config=release -run=1
 
 
 # Additional Build Information:
