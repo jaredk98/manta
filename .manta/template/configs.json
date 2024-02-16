@@ -1,0 +1,88 @@
+{
+	"debug":
+	{
+		"compile":
+		{
+			"msvc":
+			{
+				"compilerFlags": "-DCOMPILE_DEBUG=1 -Od -Z7",
+				"compilerFlagsWarnings": "-W4",
+				"linkerFlags": "-DEBUG"
+			},
+			"llvm":
+			{
+				"compilerFlags": "-DCOMPILE_DEBUG=1 -g -gcodeview",
+				"compilerFlagsWarnings": "-Wall",
+				"linkerFlags": "-fuse-ld=lld-link -Wl,-debug"
+			},
+			"gnu":
+			{
+				"compilerFlags": "-DCOMPILE_DEBUG=1 -g",
+				"compilerFlagsWarnings": "-Wall",
+				"linkerFlags": "-g"
+			}
+		},
+		"run":
+		{
+			"commandline": ""
+		}
+	},
+
+	"debug-asan":
+	{
+		"compile":
+		{
+			"msvc":
+			{
+				"compilerFlags": "-DCOMPILE_DEBUG=1 -fsanitize=address -Od -Z7",
+				"compilerFlagsWarnings": "-W4",
+				"linkerFlags": "-DEBUG"
+			},
+			"llvm":
+			{
+				"compilerFlags": "-DCOMPILE_DEBUG=1 -fsanitize=address -g -O0",
+				"compilerFlagsWarnings": "-Wall",
+				"linkerFlags": ""
+			},
+			"gnu":
+			{
+				"compilerFlags": "-DCOMPILE_DEBUG=1 -fsanitize=address -g -O0",
+				"compilerFlagsWarnings": "-Wall",
+				"linkerFlags": ""
+			}
+		},
+		"run" :
+		{
+			"commandline": ""
+		}
+	},
+
+	"release":
+	{
+		"compile":
+		{
+			"msvc":
+			{
+				"compilerFlags": "-Ox",
+				"compilerFlagsWarnings": "",
+				"linkerFlags": ""
+			},
+			"llvm":
+			{
+				"compilerFlags": "-O3",
+				"compilerFlagsWarnings": "",
+				"linkerFlags": ""
+			},
+			"gnu":
+			{
+				"compilerFlags": "-O3",
+				"compilerFlagsWarnings": "",
+				"linkerFlags": ""
+			}
+		},
+		"run":
+		{
+			"commandline": ""
+		}
+	}
+}

@@ -1,0 +1,93 @@
+#include <object_api.hpp>
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Includes
+
+HEADER_INCLUDES
+// ...
+
+SOURCE_INCLUDES
+#include <scene.hpp>
+#include <manta/window.hpp>
+#include <manta/input.hpp>
+#include <manta/draw.hpp>
+#include <manta/math.hpp>
+#include <manta/random.hpp>
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Object
+
+OBJECT( obj_rocket )
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Data
+
+PUBLIC float x = 0.0f;
+PUBLIC float y = 0.0f;
+PUBLIC float direction = 0.0f;
+PUBLIC float speed = 0.0f;
+PUBLIC float shootTimer = 1.0f;
+PUBLIC bool shootSide = false;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Events
+
+EVENT_CREATE
+{
+	x = window::width * 0.5f;
+	y = window::height * 0.5f;
+}
+
+EVENT_STEP
+{
+	// Direction
+	if( keyboard::check( vk_a ) ) { direction -= 180.0f * delta; }
+	if( keyboard::check( vk_d ) ) { direction += 180.0f * delta; }
+	if( keyboard::check( vk_w ) ) { speed += 160.0f * delta; }
+	if( keyboard::check( vk_s ) ) { speed -= 120.0f * delta; }
+	speed = clamp( speed, -60.0f, 240.0f );
+
+	// Wrap around screen
+	x = wrap( x, 0.0f, static_cast<float>( window::width ) );
+	y = wrap( y, 0.0f, static_cast<float>( window::height ) );
+
+	// Movement
+	x += lengthdir_x( speed * delta, direction );
+	y += lengthdir_y( speed * delta, direction );
+
+	// Projectiles
+	shootTimer += delta;
+	if( keyboard::check( vk_space ) )
+	{
+		if( shootTimer >= ( keyboard::check( vk_control ) ? 0.01f : 0.1f ) )
+		{
+			// Create Projectile
+			Object projectile = sceneObjects.create( obj_projectile );
+			if( auto handle = projectile.handle<obj_projectile>( sceneObjects ); handle )
+			{
+				const float spawnX = lengthdir_x( 28, direction + ( shootSide ? 90.0f : -90.0f ) ) + lengthdir_x( 20, direction );
+				const float spawnY = lengthdir_y( 28, direction + ( shootSide ? 90.0f : -90.0f ) ) + lengthdir_y( 20, direction );
+
+				handle->x = x + spawnX;
+				handle->y = y + spawnY;
+
+				handle->direction = direction + random::value<float>( -4.0f, 4.0f );
+				handle->speed = speed + 500.0f;
+
+				speed -= 0.5f;
+			}
+
+			// Reset timer & alternate shoot side
+			shootTimer = 0.0f;
+			shootSide = !shootSide;
+		}
+	}
+}
+
+EVENT_DRAW
+{
+	draw_sprite_angle( spr_rocket_ship, 0, x, y, direction, 1.0f, 1.0f, c_white, 0.0f );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Functions

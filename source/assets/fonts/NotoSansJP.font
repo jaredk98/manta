@@ -1,0 +1,10 @@
+{
+	"name": "fnt_notosans_jp",
+	"ttf": "NotoSansJP.ttf",
+	"license": "",
+
+	"ranges":
+	[
+		{ "start": 32, "end": 126 },
+	],
+}

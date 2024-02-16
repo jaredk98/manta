@@ -1,0 +1,10 @@
+{
+	"name": "fnt_notosans_arabic",
+	"ttf": "NotoSansArabic.ttf",
+	"license": "",
+
+	"ranges":
+	[
+		{ "start": 32, "end": 126 },
+	],
+}
