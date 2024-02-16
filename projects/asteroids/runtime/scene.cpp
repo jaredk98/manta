@@ -58,7 +58,7 @@ void scene_update( const Delta delta )
 	if( Scene::dead )
 	{
 		// Respawn
-		if( keyboard::check( vk_space ) )
+		if( keyboard::check_pressed( vk_space ) )
 		{
 			// Reset Astroids
 			Scene::objects.destroy_all_type( obj_asteroid );
@@ -66,6 +66,9 @@ void scene_update( const Delta delta )
 
 			// Create Player
 			Scene::objects.create( obj_rocket );
+
+			// Reset Score
+			Scene::score = 0;
 		}
 	}
 }
