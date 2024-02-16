@@ -1,0 +1,47 @@
+rule compile
+  deps = msvc
+  command = cl $in -Fo:$out -c -showIncludes -nologo -std:c++20 -EHsc -DUNICODE  -Ox -wd4100 -wd4101 -wd4189 -wd4201 -wd4244 -wd4456 -wd4458 -wd4459 -wd4505 -wd4702 -I"..\..\runtime" -I"..\generated" -I"..\..\..\..\source"
+
+rule link
+  command = link $in -out:$out -nologo d3d11.lib d3dcompiler.lib dxgi.lib winmm.lib user32.lib Shell32.lib
+
+build objects\projects\asteroids\runtime\assets.obj: compile ..\..\..\..\projects\asteroids\runtime\assets.cpp
+build objects\projects\asteroids\runtime\main.obj: compile ..\..\..\..\projects\asteroids\runtime\main.cpp
+build objects\projects\asteroids\runtime\scene.obj: compile ..\..\..\..\projects\asteroids\runtime\scene.cpp
+build objects\projects\asteroids\output\generated\assets.generated.obj: compile ..\..\..\..\projects\asteroids\output\generated\assets.generated.cpp
+build objects\projects\asteroids\output\generated\objects.generated.obj: compile ..\..\..\..\projects\asteroids\output\generated\objects.generated.cpp
+build objects\projects\asteroids\output\generated\shaders.generated.obj: compile ..\..\..\..\projects\asteroids\output\generated\shaders.generated.cpp
+build objects\source\debug.obj: compile ..\..\..\..\source\debug.cpp
+build objects\source\vendor\crc32.obj: compile ..\..\..\..\source\vendor\crc32.cpp
+build objects\source\vendor\stb\stb_image.obj: compile ..\..\..\..\source\vendor\stb\stb_image.cpp
+build objects\source\vendor\stb\stb_truetype.obj: compile ..\..\..\..\source\vendor\stb\stb_truetype.cpp
+build objects\source\manta\assets.obj: compile ..\..\..\..\source\manta\assets.cpp
+build objects\source\manta\color.obj: compile ..\..\..\..\source\manta\color.cpp
+build objects\source\manta\draw.obj: compile ..\..\..\..\source\manta\draw.cpp
+build objects\source\manta\engine.obj: compile ..\..\..\..\source\manta\engine.cpp
+build objects\source\manta\fileio.obj: compile ..\..\..\..\source\manta\fileio.cpp
+build objects\source\manta\fonts.obj: compile ..\..\..\..\source\manta\fonts.cpp
+build objects\source\manta\gfx.obj: compile ..\..\..\..\source\manta\gfx.cpp
+build objects\source\manta\gfx.shaders.obj: compile ..\..\..\..\source\manta\gfx.shaders.cpp
+build objects\source\manta\input.obj: compile ..\..\..\..\source\manta\input.cpp
+build objects\source\manta\list.obj: compile ..\..\..\..\source\manta\list.cpp
+build objects\source\manta\math.obj: compile ..\..\..\..\source\manta\math.cpp
+build objects\source\manta\matrix.obj: compile ..\..\..\..\source\manta\matrix.cpp
+build objects\source\manta\memory.obj: compile ..\..\..\..\source\manta\memory.cpp
+build objects\source\manta\objects.obj: compile ..\..\..\..\source\manta\objects.cpp
+build objects\source\manta\random.obj: compile ..\..\..\..\source\manta\random.cpp
+build objects\source\manta\string.obj: compile ..\..\..\..\source\manta\string.cpp
+build objects\source\manta\textureio.obj: compile ..\..\..\..\source\manta\textureio.cpp
+build objects\source\manta\timer.obj: compile ..\..\..\..\source\manta\timer.cpp
+build objects\source\manta\utf8.obj: compile ..\..\..\..\source\manta\utf8.cpp
+build objects\source\manta\vector.obj: compile ..\..\..\..\source\manta\vector.cpp
+build objects\source\manta\window.obj: compile ..\..\..\..\source\manta\window.cpp
+build objects\source\manta\backend\audio\wasapi\audio.wasapi.obj: compile ..\..\..\..\source\manta\backend\audio\wasapi\audio.wasapi.cpp
+build objects\source\manta\backend\filesystem\windows\filesystem.windows.obj: compile ..\..\..\..\source\manta\backend\filesystem\windows\filesystem.windows.cpp
+build objects\source\manta\backend\network\windows\network.windows.obj: compile ..\..\..\..\source\manta\backend\network\windows\network.windows.cpp
+build objects\source\manta\backend\gfx\d3d11\gfx.d3d11.obj: compile ..\..\..\..\source\manta\backend\gfx\d3d11\gfx.d3d11.cpp
+build objects\source\manta\backend\thread\windows\thread.windows.obj: compile ..\..\..\..\source\manta\backend\thread\windows\thread.windows.cpp
+build objects\source\manta\backend\timer\windows\timer.windows.obj: compile ..\..\..\..\source\manta\backend\timer\windows\timer.windows.cpp
+build objects\source\manta\backend\window\windows\window.windows.obj: compile ..\..\..\..\source\manta\backend\window\windows\window.windows.cpp
+
+build asteroids.exe: link objects\projects\asteroids\runtime\assets.obj objects\projects\asteroids\runtime\main.obj objects\projects\asteroids\runtime\scene.obj objects\projects\asteroids\output\generated\assets.generated.obj objects\projects\asteroids\output\generated\objects.generated.obj objects\projects\asteroids\output\generated\shaders.generated.obj objects\source\debug.obj objects\source\vendor\crc32.obj objects\source\vendor\stb\stb_image.obj objects\source\vendor\stb\stb_truetype.obj objects\source\manta\assets.obj objects\source\manta\color.obj objects\source\manta\draw.obj objects\source\manta\engine.obj objects\source\manta\fileio.obj objects\source\manta\fonts.obj objects\source\manta\gfx.obj objects\source\manta\gfx.shaders.obj objects\source\manta\input.obj objects\source\manta\list.obj objects\source\manta\math.obj objects\source\manta\matrix.obj objects\source\manta\memory.obj objects\source\manta\objects.obj objects\source\manta\random.obj objects\source\manta\string.obj objects\source\manta\textureio.obj objects\source\manta\timer.obj objects\source\manta\utf8.obj objects\source\manta\vector.obj objects\source\manta\window.obj objects\source\manta\backend\audio\wasapi\audio.wasapi.obj objects\source\manta\backend\filesystem\windows\filesystem.windows.obj objects\source\manta\backend\network\windows\network.windows.obj objects\source\manta\backend\gfx\d3d11\gfx.d3d11.obj objects\source\manta\backend\thread\windows\thread.windows.obj objects\source\manta\backend\timer\windows\timer.windows.obj objects\source\manta\backend\window\windows\window.windows.obj

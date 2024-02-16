@@ -554,7 +554,7 @@ vec2i text_dimensions( const u16 font, const u16 size, const char *string )
 }
 
 
-vec2i text_dimensions_f( const u32 font, const u16 size, const float x, const float y, Color color, const char *format, ... )
+vec2i text_dimensions_f( const u32 font, const u16 size, const char *format, ... )
 {
 #if !RENDER_NONE
 	va_list args;
