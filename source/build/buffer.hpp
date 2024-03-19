@@ -10,7 +10,6 @@
 class Buffer
 {
 public:
-	//Buffer() = default;
 	Buffer( usize reserve = 1, const bool grow = true ) { init( reserve, grow ); }
 	Buffer( const char *path, const bool grow = true ) { load( path, grow ); }
 	Buffer( const Buffer &other ) { copy( other ); }
@@ -81,6 +80,9 @@ public:
 	inline void seek_start() { tell = 0; }
 	inline void seek_end() { tell = current; }
 	inline void seek_to( const usize tell ) { Assert( tell < this->current ); this->tell = tell; }
+
+	inline void clear() { tell = 0; current = 0; }
+
 	inline usize size() { return current; }
 
 public:

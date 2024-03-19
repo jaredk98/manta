@@ -8,8 +8,25 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+namespace iTextureIO
+{
+	struct TextureBuffer
+	{
+		byte *data = nullptr;
+		u8 pixelFormat = RGBA8;
+		u8 pixelSize = 4;
+		u16 width = 0;
+		u16 height = 0;
+		u16 depth = 0;
+	};
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Texture2DBuffer
 {
+	// TODO: Support multiple color formats
+
 	Texture2DBuffer() : data( nullptr ), width( 0 ), height( 0 ) { }
 
 	bool save( const char *path );

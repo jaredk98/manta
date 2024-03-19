@@ -3,6 +3,8 @@
 #include <config.hpp>
 #include <types.hpp>
 
+#include <manta/memory.hpp>
+
 #include <vendor/vendor.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,19 +41,12 @@ struct ThreadID
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace thread
+namespace Thread
 {
 	extern void sleep( u32 milliseconds );
 	extern struct ThreadID id();
+	extern void *create( ThreadFunction function );
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-struct Thread
-{
-	Thread( ThreadFunction function );
-	void *handle = nullptr;
-};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -84,3 +79,155 @@ struct Condition
 	void sleep( Mutex &mutex );
 	void wake();
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+template <typename T> struct ConcurrentQueue
+{
+    T *data = nullptr;
+    usize capacity = 1;
+    usize count = 0;
+    usize front = 0;
+    usize back = 0;
+
+    Mutex mutex;
+    Condition empty;
+
+	bool init( const int reserve );
+	bool free();
+	bool clear();
+	bool enqueue( const T &element );
+
+	bool dequeue( T &outElement );
+	bool dequeue_lock( T &outElement );
+	bool dequeue_unlock();
+};
+
+
+template <typename T> bool ConcurrentQueue<T>::init( const int reserve )
+{
+	capacity = reserve;
+	count = 0;
+	front = 0;
+	back = -1;
+
+	Assert( data == nullptr );
+	data = reinterpret_cast<T *>( memory_alloc( capacity * sizeof( T ) ) );
+	ErrorIf( data == nullptr, "Failed to allocate memory for ConcurrentQueue" );
+
+	mutex.init();
+	empty.init();
+
+	return true;
+}
+
+
+template <typename T> bool ConcurrentQueue<T>::free()
+{
+	if( data == nullptr ) { return true; }
+
+	empty.free();
+	mutex.free();
+
+	memory_free( data );
+	data = nullptr;
+}
+
+
+template <typename T> bool ConcurrentQueue<T>::clear()
+{
+	Assert( data != nullptr );
+
+	mutex.lock();
+    {
+        count = 0;
+        front = 0;
+        back = -1;
+    }
+	mutex.unlock();
+
+	return true;
+}
+
+
+template <typename T> bool ConcurrentQueue<T>::enqueue( const T &element )
+{
+	Assert( data != nullptr );
+
+	mutex.lock();
+	{
+		// If the queue is full, wait until a spot opens up (maybe we should just bail?)
+		while( count >= capacity )
+		{
+			empty.sleep( mutex );
+		}
+
+		back = ( back + 1 ) % capacity;
+		data[back] = element;
+		count++;
+
+		empty.wake();
+	}
+	mutex.unlock();
+
+	return true;
+}
+
+
+template <typename T> bool ConcurrentQueue<T>::dequeue( T &outElement )
+{
+	Assert( data != nullptr );
+
+	mutex.lock();
+	{
+		// If the queue is empty, abort
+		if( count <= 0 )
+		{
+			mutex.unlock();
+			return false;
+		}
+
+		outElement = data[front];
+		front = ( front + 1 ) % capacity;
+		count--;
+
+		empty.wake();
+	}
+	mutex.unlock();
+
+	return true;
+}
+
+
+template <typename T> bool ConcurrentQueue<T>::dequeue_lock( T &outElement )
+{
+	Assert( data != nullptr );
+
+	mutex.lock();
+
+	// If the queue is empty, abort
+	if( count <= 0 )
+	{
+		mutex.unlock();
+		return false;
+	}
+
+	outElement = data[front];
+	front = ( front + 1 ) % capacity;
+	count--;
+
+	return true;
+}
+
+
+template <typename T> bool ConcurrentQueue<T>::dequeue_unlock()
+{
+	Assert( data != nullptr );
+
+	empty.wake();
+	mutex.unlock();
+
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

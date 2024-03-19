@@ -1,9 +1,0 @@
-{
-	"name": "SPRITE_PIXEL",
-	"texture": "SPRITE_PIXEL.png",
-	"atlas": "ui",
-
-	"count": 1,
-	"xorigin": 0,
-	"yorigin": 0,
-}

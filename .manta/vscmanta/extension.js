@@ -91,6 +91,7 @@ async function activate( context )
 	context.subscriptions.push( vscode.commands.registerCommand( "vscmanta.package", CommandAbout ) );
 	context.subscriptions.push( vscode.commands.registerCommand( "vscmanta.debugRuntime", CommandDebugRuntime ) );
 	context.subscriptions.push( vscode.commands.registerCommand( "vscmanta.renderdoc", CommandRenderDoc ) );
+	context.subscriptions.push( vscode.commands.registerCommand( "vscmanta.insertCommentBreak", CommandInsertCommentBreak ) );
 
 	// Build Configuration Widgets
 	WidgetCreate( context, WIDGET_WORKSPACE, "[]", "vscmanta.setWorkspace" );
@@ -887,6 +888,22 @@ async function CommandStartDebugging( args )
 	}
 
 	vscode.debug.startDebugging( vscode.workspace.workspaceFolders[0], args.config );
+}
+
+function CommandInsertCommentBreak()
+{
+	// Get the active text editor
+	const editor = vscode.window.activeTextEditor;
+
+	if( editor )
+	{
+		// Insert Comment Break
+		const position = editor.selection.active;
+		editor.edit( editBuilder =>
+		{
+			editBuilder.insert( position, "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////" );
+		} );
+	}
 }
 
 async function OpenFile( path )

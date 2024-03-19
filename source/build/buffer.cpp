@@ -12,7 +12,7 @@ void Buffer::init( usize reserve, const bool grow )
 	fixed = !grow;
 	tell = 0;
 	data = reinterpret_cast<byte *>( memory_alloc( capacity ) );
-	ErrorIf( data == nullptr, "Failed to allocate memory for init() Buffer (%p: memory_alloc %d bytes)", data, capacity );
+	ErrorIf( data == nullptr, "Failed to allocate memory for init Buffer (%p: alloc %d bytes)", data, capacity );
 }
 
 
@@ -30,7 +30,7 @@ void Buffer::free()
 void Buffer::grow()
 {
 	Assert( data != nullptr );
-	ErrorIf( capacity == USIZE_MAX, "Failed to grow() Buffer -- it is already at capacity (%p: capacity: %d bytes)", data, USIZE_MAX );
+	ErrorIf( capacity == USIZE_MAX, "Failed to grow Buffer: at capacity (%p: capacity: %d bytes)", data, USIZE_MAX );
 	capacity = capacity == 0 ? 1 : ( capacity >= USIZE_MAX / 2 ? USIZE_MAX : capacity * 2 );
 	data = reinterpret_cast<byte *>( memory_realloc( data, capacity ) );
 	ErrorIf( data == nullptr, "Failed to reallocate memory for (grow) Buffer (%p: memory_realloc %d bytes)", data, capacity );

@@ -6,6 +6,8 @@
 		#include <windows.h>
 		#include <windowsx.h>
 	#include <vendor/conflicts.hpp>
+
+	#define WS_EX_NOREDIRECTIONBITMAP 0x00200000L
 #else
 	#include <vendor/vendor.hpp>
 
@@ -465,6 +467,7 @@
 
 	// user32.dll
 	extern "C" DLL_IMPORT  BOOL STD_CALL AdjustWindowRect(RECT *, DWORD, BOOL);
+	extern "C" DLL_IMPORT  BOOL STD_CALL ClientToScreen(HWND, POINT *);
 	extern "C" DLL_IMPORT  BOOL STD_CALL BringWindowToTop(HWND);
 	extern "C" DLL_IMPORT  HWND STD_CALL CreateWindowExW(DWORD, LPCWSTR, LPCWSTR, DWORD, int, int, int, int, HWND, HMENU, HINSTANCE, void *);
 	extern "C" DLL_IMPORT  LRESULT STD_CALL DefWindowProcW(HWND, UINT, WPARAM, LPARAM);
@@ -481,6 +484,7 @@
 	extern "C" DLL_IMPORT  BOOL STD_CALL ReleaseCapture();
 	extern "C" DLL_IMPORT  HWND STD_CALL SetCapture(HWND);
 	extern "C" DLL_IMPORT  HCURSOR STD_CALL SetCursor(HCURSOR);
+	extern "C" DLL_IMPORT  BOOL STD_CALL SetCursorPos(int, int);
 	extern "C" DLL_IMPORT  BOOL STD_CALL SetWindowPos(HWND, HWND, int, int, int, int, UINT);
 	extern "C" DLL_IMPORT  BOOL STD_CALL SetWindowTextW(HWND, LPCWSTR);
 	extern "C" DLL_IMPORT  BOOL STD_CALL ShowWindow(HWND, int);

@@ -5,4 +5,5 @@ Place these in keybindings.json
     { "key": "f6", "when": "resourceExists('.manta')", "command": "vscmanta.debugRuntime" },
     { "key": "f7", "when": "resourceExists('.manta')", "command": "vscmanta.renderdoc" },
     { "key": "f8", "when": "resourceExists('.manta')", "command": "vscmanta.build" },
+    { "key": "f9", "when": "resourceExists('.manta')", "command": "vscmanta.insertCommentBreak" },
     { "key": "ctrl+shift+c", "when": "resourceExists('.manta')", "command": "vscmanta.cleanProject" },

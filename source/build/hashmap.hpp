@@ -26,16 +26,22 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename K, typename V>
-struct HashMap
+class HashMap
 {
+public:
 	struct KeyValue
 	{
 		K key;
 		V value;
 	};
 
-	HashMap() { init(); }
+	HashMap( const usize reserve = 32 ) { init( reserve ); }
+	HashMap( const HashMap<K, V> &other ) { copy( other ); }
+	HashMap( HashMap<K, V> &&other ) { move( static_cast<HashMap<K, V> &&>( other ) ); }
 	~HashMap() { free(); }
+
+	HashMap<K, V> &operator=( const HashMap<K, V> &other ) { copy( other ); return *this; }
+	HashMap<K, V> &operator=( HashMap<K, V> &&other ) { move( static_cast<HashMap<K, V> &&>( other ) ); return *this; }
 
 	void init( const u32 reserve, const V defaultValue )
 	{
@@ -66,6 +72,59 @@ struct HashMap
 		Assert( data != nullptr );
 		memory_free( data );
 		data = nullptr;
+	}
+
+	void copy( const HashMap<K, V> &other )
+	{
+		Assert( other.data != nullptr );
+		if( data != nullptr ) { free(); }
+		init( other.capacity );
+		defaultValue = other.defaultValue;
+		capacity = other.capacity;
+		size = other.stride;
+		memory_copy( data, other.data, capacity * sizeof( KeyValue ) );
+	}
+
+	void move( HashMap<K, V> &&other )
+	{
+		if( data != nullptr ) { free(); }
+		data = other.data;
+		defaultValue = other.defaultValue;
+		capacity = other.capacity;
+		size = other.stride;
+		other.data = nullptr;
+		other.capacity = 0;
+		other.size = 0;
+	}
+
+	void grow()
+	{
+		ErrorIf( ( static_cast<u64>( capacity ) << 1 ) > U32_MAX, "Exceeded maximum HashTable size" );
+
+		u32 capacityOld = capacity;
+		KeyValue *dataOld = data;
+
+		capacity <<= 1;
+		data = reinterpret_cast<KeyValue *>( memory_alloc( capacity * sizeof( KeyValue ) ) );
+		ErrorIf( data == nullptr, "Failed to allocate memory to grow HashMap" );
+		for( u32 i = 0; i < capacity; i++ ) { set_null( data[i].key ); }
+
+		// Rehash keys from the old table
+		for( u32 i = 0; i < capacityOld; i++ )
+		{
+			// Skip null Buckets
+			KeyValue &src = dataOld[i];
+			if( is_null( src.key ) ) { continue; }
+
+			KeyValue &dst = find( src.key );
+			dst.key = src.key;
+			dst.value = src.value;
+			src.key.~K();
+			src.value.~V();
+		}
+
+		// Reset old data
+		memory_free( dataOld );
 	}
 
 	bool add( const K &key, const V &value )
@@ -143,36 +202,7 @@ struct HashMap
 	forward_iterator begin() { return forward_iterator( &data[0], &data[capacity] ); }
 	forward_iterator end() { return forward_iterator( &data[capacity] ); }
 
-private:
-	void grow()
-	{
-		ErrorIf( ( static_cast<u64>( capacity ) << 1 ) > U32_MAX, "Exceeded maximum HashTable size" );
-		u32 capacityNew = capacity << 1;
-
-		KeyValue *dataNew = reinterpret_cast<KeyValue *>( memory_alloc( capacityNew * sizeof( KeyValue ) ) );
-		ErrorIf( dataNew == nullptr, "Failed to allocate memory to grow HashMap" );
-		for( u32 i = 0; i < capacityNew; i++ ) { set_null( dataNew[i].key ); }
-
-		// Rehash keys from the old table
-		for( u32 i = 0; i < capacity; i++ )
-		{
-			// Skip null Buckets
-			KeyValue &src = data[i];
-			if( is_null( src.key ) ) { continue; }
-
-			KeyValue &dst = find( src.key );
-			dst.key = src.key;
-			dst.value = src.value;
-		}
-
-		// Reset old data
-		free();
-
-		// Reassign to grown memory
-		data = dataNew;
-		capacity = capacityNew;
-	}
-
+//private:
 	KeyValue *data = nullptr;
 	V defaultValue;
 	u32 capacity;

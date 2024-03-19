@@ -29,7 +29,7 @@
 // Object Properties:
 
 	// Type
-	#define OBJECT( name ) using namespace iobjects::ObjectIntelliSense_##name;
+	#define OBJECT( name ) using namespace iObjects::ObjectIntelliSense_##name;
 
 	// Parent
 	#define PARENT( parent ) constexpr bool PARENT_OBJECT = true;

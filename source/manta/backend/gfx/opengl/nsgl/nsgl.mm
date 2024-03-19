@@ -40,10 +40,10 @@ bool opengl_init()
 		{ ErrorReturnMsg( false, "OpenGL: Failed to create OpenGL context" ); }
 
 	// Disable Retina Framebuffer
-	[iwindow::view setWantsBestResolutionOpenGLSurface:YES];
+	[iWindow::view setWantsBestResolutionOpenGLSurface:YES];
 
 	// Bind Context
-	[context setView:iwindow::view];
+	[context setView:iWindow::view];
 	[context makeCurrentContext];
 
 	// Disable Vsync (TODO)

@@ -19,7 +19,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace iwindow
+namespace iWindow
 {
 	HWND handle;
 
@@ -30,7 +30,7 @@ namespace iwindow
 			// Close Button
 			case WM_CLOSE:
 			{
-				engine::exit();
+				Engine::exit();
 				return 0;
 			}
 
@@ -38,31 +38,31 @@ namespace iwindow
 			case WM_GETMINMAXINFO:
 			{
 				MINMAXINFO *info = reinterpret_cast<MINMAXINFO *>( lp );
-				info->ptMinTrackSize.x = window::widthMin > 0 ? static_cast<LONG>( window::widthMin ) : 0;
-				info->ptMinTrackSize.y = window::heightMin > 0 ? static_cast<LONG>( window::heightMin ) : 0;
-				info->ptMaxTrackSize.x = window::widthMax > 0 ? static_cast<LONG>( window::widthMax ) : I32_MAX;
-				info->ptMaxTrackSize.y = window::heightMax > 0 ? static_cast<LONG>( window::heightMax ) : I32_MAX;
+				info->ptMinTrackSize.x = Window::widthMin > 0 ? static_cast<LONG>( Window::widthMin ) : 0;
+				info->ptMinTrackSize.y = Window::heightMin > 0 ? static_cast<LONG>( Window::heightMin ) : 0;
+				info->ptMaxTrackSize.x = Window::widthMax > 0 ? static_cast<LONG>( Window::widthMax ) : I32_MAX;
+				info->ptMaxTrackSize.y = Window::heightMax > 0 ? static_cast<LONG>( Window::heightMax ) : I32_MAX;
 				return 0;
 			}
 
 			// Focus
 			case WM_ACTIVATEAPP:
 			{
-				window::hasFocus = static_cast<bool>( wp );
+				Window::hasFocus = static_cast<bool>( wp );
 				return 0;
 			}
 
 			// Resize
 			case WM_SIZE:
 			{
-				BringWindowToTop( iwindow::handle );
+				BringWindowToTop( iWindow::handle );
 				int width = LOWORD( lp );
 				int height = HIWORD( lp );
 				if( width != 0 && height != 0 )
 				{
-					window::width = static_cast<i32>( width );
-					window::height = static_cast<i32>( height );
-					window::resized = true;
+					Window::width = static_cast<i32>( width );
+					Window::height = static_cast<i32>( height );
+					Window::resized = true;
 					Gfx::viewport_update();
 				}
 				return 0;
@@ -73,7 +73,7 @@ namespace iwindow
 			case WM_MOVE:
 			{
 				// Reset fullscreen
-				if( window::fullscreen ) { window::fullscreen_set( true ); }
+				if( Window::fullscreen ) { Window::fullscreen_set( true ); }
 				return 0;
 			}
 
@@ -81,7 +81,7 @@ namespace iwindow
 			case WM_KEYDOWN:
 			case WM_KEYUP:
 			{
-				ikeyboard::keyboards[ikeyboard::primary].keyCurrent[wp] = ( msg == WM_KEYDOWN );
+				iKeyboard::keyboards[iKeyboard::primary].keyCurrent[wp] = ( msg == WM_KEYDOWN );
 				return 0;
 			}
 
@@ -143,12 +143,12 @@ namespace iwindow
 			case WM_MBUTTONUP:
 			{
 				// Update State
-				imouse::mice[imouse::primary].buttonCurrent = static_cast<int>( wp );
+				iMouse::mice[iMouse::primary].buttonCurrent = static_cast<int>( wp );
 
 				// Update Capture
 				if( wp & ( MK_LBUTTON | MK_RBUTTON | MK_MBUTTON ) )
 				{
-					SetCapture( iwindow::handle );
+					SetCapture( iWindow::handle );
 				}
 				else
 				{
@@ -162,13 +162,13 @@ namespace iwindow
 			{
 				if( GET_WHEEL_DELTA_WPARAM( wp ) > 0 )
 				{
-					imouse::mice[imouse::primary].wheelY = -1; // up
-					imouse::mice[imouse::primary].wheelYVelocity = 1.0f;
+					iMouse::mice[iMouse::primary].wheelY = -1; // up
+					iMouse::mice[iMouse::primary].wheelYVelocity = 1.0f;
 				}
 				else
 				{
-					imouse::mice[imouse::primary].wheelY = 1; // down
-					imouse::mice[imouse::primary].wheelYVelocity = 1.0f;
+					iMouse::mice[iMouse::primary].wheelY = 1; // down
+					iMouse::mice[iMouse::primary].wheelYVelocity = 1.0f;
 				}
 
 				return 0;
@@ -178,13 +178,13 @@ namespace iwindow
 			{
 				if( GET_WHEEL_DELTA_WPARAM( wp ) > 0 )
 				{
-					imouse::mice[imouse::primary].wheelX = 1; // right
-					imouse::mice[imouse::primary].wheelXVelocity = 1.0f;
+					iMouse::mice[iMouse::primary].wheelX = 1; // right
+					iMouse::mice[iMouse::primary].wheelXVelocity = 1.0f;
 				}
 				else
 				{
-					imouse::mice[imouse::primary].wheelX = -1; // left
-					imouse::mice[imouse::primary].wheelXVelocity = 1.0f;
+					iMouse::mice[iMouse::primary].wheelX = -1; // left
+					iMouse::mice[iMouse::primary].wheelXVelocity = 1.0f;
 				}
 
 				return 0;
@@ -193,10 +193,10 @@ namespace iwindow
 			// Mouse Movement
 			case WM_MOUSEMOVE:
 			{
-				imouse::mice[imouse::primary].xPrevious = imouse::mice[imouse::primary].x;
-				imouse::mice[imouse::primary].yPrevious = imouse::mice[imouse::primary].y;
-				imouse::mice[imouse::primary].x = static_cast<float>( GET_X_LPARAM(lp) );
-				imouse::mice[imouse::primary].y = static_cast<float>( GET_Y_LPARAM(lp) );
+				iMouse::mice[iMouse::primary].xPrevious = iMouse::mice[iMouse::primary].x;
+				iMouse::mice[iMouse::primary].yPrevious = iMouse::mice[iMouse::primary].y;
+				iMouse::mice[iMouse::primary].x = static_cast<float>( GET_X_LPARAM(lp) );
+				iMouse::mice[iMouse::primary].y = static_cast<float>( GET_Y_LPARAM(lp) );
 				return 0;
 			}
 
@@ -205,12 +205,13 @@ namespace iwindow
 		}
 	}
 
+
 	bool init( const i32 defaultWidth, const i32 defaultHeight )
 	{
 		// Set Dimensions
-		window::width = defaultWidth;
-		window::height = defaultHeight;
-		window::resized = true;
+		Window::width = defaultWidth;
+		Window::height = defaultHeight;
+		Window::resized = true;
 
 		// Get Application Instance
 		HINSTANCE instance;
@@ -224,12 +225,12 @@ namespace iwindow
 		RECT area;
 		area.left = 0;
 		area.top = 0;
-		area.right = window::width;
-		area.bottom = window::height;
+		area.right = Window::width;
+		area.bottom = Window::height;
 
 		AdjustWindowRect( &area, WINDOW_STYLE, false );
-		window::width = area.right - area.left;
-		window::height = area.bottom - area.top;
+		Window::width = area.right - area.left;
+		Window::height = area.bottom - area.top;
 
 		// Register Class
 		WNDCLASSW wclass;
@@ -253,7 +254,7 @@ namespace iwindow
 		if( !RegisterClassW( &wclass ) ) { ErrorReturnMsg( false, "WIN: Failed to register window class" ); }
 
 		// Create Window
-		handle = CreateWindowExW (
+		handle = CreateWindowExW(
 	#if GRAPHICS_D3D11 // TODO (jkrahn): GRAPHICS_VULKAN, GRAPHICS_D3D12, etc. -- consider these?
 			WS_EX_NOREDIRECTIONBITMAP,
 	#else
@@ -262,10 +263,10 @@ namespace iwindow
 			WINDOW_CLASS,
 			WINDOW_TITLE,
 			WINDOW_STYLE,
-			( GetSystemMetrics( SM_CXSCREEN ) - window::width ) >> 1,
-			( GetSystemMetrics( SM_CYSCREEN ) - window::height ) >> 1,
-			window::width,
-			window::height,
+			( GetSystemMetrics( SM_CXSCREEN ) - Window::width ) >> 1,
+			( GetSystemMetrics( SM_CYSCREEN ) - Window::height ) >> 1,
+			Window::width,
+			Window::height,
 			nullptr,
 			nullptr,
 			instance,
@@ -278,10 +279,19 @@ namespace iwindow
 		return true;
 	}
 
+
+	bool free()
+	{
+		// Success
+		return true;
+	}
+
+
 	void show()
 	{
-		ShowWindow( iwindow::handle, SW_NORMAL );
+		ShowWindow( iWindow::handle, SW_NORMAL );
 	}
+
 
 	void poll()
 	{
@@ -295,11 +305,21 @@ namespace iwindow
 			DispatchMessageW( &msg );
 		}
 	}
+
+
+	void mouse_set_position( const int x, const int y )
+	{
+		POINT p;
+		p.x = x;
+		p.y = y;
+		ClientToScreen( iWindow::handle, &p );
+		SetCursorPos( p.x, p.y );
+	}
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace window
+namespace Window
 {
 	void fullscreen_set( bool enabled )
 	{
@@ -314,7 +334,7 @@ namespace window
 		monitor.cbSize = sizeof( MONITORINFO );
 
 		// Get Nearest Monitor
-		GetMonitorInfoW( MonitorFromWindow( iwindow::handle, MONITOR_DEFAULTTONEAREST ), &monitor );
+		GetMonitorInfoW( MonitorFromWindow( iWindow::handle, MONITOR_DEFAULTTONEAREST ), &monitor );
 
 		// Get Monitor Dimensions
 		mw = monitor.rcMonitor.right  - monitor.rcMonitor.left;
@@ -323,14 +343,14 @@ namespace window
 		if( enabled )
 		{
 			// Enter Fullscreen
-			window::fullscreen = true;
+			Window::fullscreen = true;
 
 			// Update Window Style
-			SetWindowLongPtrW( iwindow::handle, GWL_STYLE, WINDOW_STYLE & ~( WS_CAPTION | WS_THICKFRAME ) );
+			SetWindowLongPtrW( iWindow::handle, GWL_STYLE, WINDOW_STYLE & ~( WS_CAPTION | WS_THICKFRAME ) );
 
 			// Update Window Size
 			SetWindowPos(
-				iwindow::handle,
+				iWindow::handle,
 				nullptr,
 				monitor.rcMonitor.left,
 				monitor.rcMonitor.top,
@@ -343,7 +363,7 @@ namespace window
 		else
 		{
 			// Exit Fullscreen
-			window::fullscreen = false;
+			Window::fullscreen = false;
 
 			// Get Client Dimensions
 			area.left = 0;
@@ -357,11 +377,11 @@ namespace window
 			ch = area.bottom - area.top;
 
 			// Update Window Style
-			SetWindowLongPtrW( iwindow::handle, GWL_STYLE, WINDOW_STYLE );
+			SetWindowLongPtrW( iWindow::handle, GWL_STYLE, WINDOW_STYLE );
 
 			// Update Window Size
 			SetWindowPos(
-				iwindow::handle,
+				iWindow::handle,
 				nullptr,
 				monitor.rcMonitor.left + ( ( mw - cw ) >> 1 ),
 				monitor.rcMonitor.top  + ( ( mh - ch ) >> 1 ),

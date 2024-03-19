@@ -4,7 +4,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void istring::_strjoin( const usize bufferSize, char *buffer, ... )
+void iString::_strjoin( const usize bufferSize, char *buffer, ... )
 {
 	if( buffer == nullptr || bufferSize == 0 ) { return; }
 
@@ -32,7 +32,7 @@ void istring::_strjoin( const usize bufferSize, char *buffer, ... )
 }
 
 
-void istring::_strjoin_filepath( const usize bufferSize, char *buffer, ... )
+void iString::_strjoin_filepath( const usize bufferSize, char *buffer, ... )
 {
 	if( buffer == nullptr || bufferSize == 0 ) { return; }
 	const usize slashLength = strlen( SLASH );
@@ -67,7 +67,7 @@ void istring::_strjoin_filepath( const usize bufferSize, char *buffer, ... )
 }
 
 
-void istring::_strappend( const usize bufferSize, char *buffer, const char *string )
+void iString::_strappend( const usize bufferSize, char *buffer, const char *string )
 {
 	if( buffer == nullptr || string == nullptr || bufferSize == 0 ) { return; }
 
@@ -78,6 +78,46 @@ void istring::_strappend( const usize bufferSize, char *buffer, const char *stri
 	if( bufferLength + stringLength < bufferSize ) { strncat( buffer, string, bufferSize - bufferLength - 1 ); }
 
 	buffer[bufferSize - 1] = '\0';
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool String::save( const char *path )
+{
+	Assert( data != nullptr );
+	FILE *file = fopen( path, "wb" );
+	if( file == nullptr ) { return false; }
+
+	bool returnCode = true;
+	if( fwrite( data, current, 1, file ) < 1 ) { returnCode = false; goto cleanup; }
+
+cleanup:
+	if( fclose( file ) != 0 ) { return false; }
+	return returnCode;
+}
+
+
+bool String::load( const char *path )
+{
+	Assert( data != nullptr );
+	FILE *file = fopen( path, "rb" );
+	if( file == nullptr ) { return false; }
+
+	bool returnCode = true;
+	const usize size = fsize( file );
+	if( size == 0 ) { returnCode = false; goto cleanup; }
+
+	capacity = size + 1;
+	current = size;
+	data = reinterpret_cast<char *>( memory_realloc( data, capacity ) );
+	ErrorIf( data == nullptr, "Failed to allocate memory for load() String (%p: memory_alloc %d bytes)", data, capacity );
+
+	if( fread( data, size, 1, file ) < 1 ) { returnCode = false; goto cleanup; }
+	data[size] = '\0';
+
+cleanup:
+	if( fclose( file ) != 0 ) { return false; }
+	return returnCode;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

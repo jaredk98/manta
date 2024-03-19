@@ -57,6 +57,7 @@ void parse_argument( int argc, char **argv, const char *argument, const char *&v
 
 struct Arguments
 {
+	const char *verbose;
 	const char *project;
 	const char *config;
 	const char *os;
@@ -66,6 +67,9 @@ struct Arguments
 
 	void parse( int argc, char **argv )
 	{
+		// Verbose
+		parse_argument( argc, argv, "-verbose=", verbose, ARG_OPTIONAL, "1", "0" );
+
 		// Project
 		parse_argument( argc, argv, "-project=", project, ARG_REQUIRED, "" );
 
@@ -107,6 +111,11 @@ struct Arguments
 		#elif PIPELINE_OS_MACOS
 			parse_argument( argc, argv, "-gfx=", gfx, ARG_OPTIONAL, "opengl", "metal", "none" );
 		#endif
+	}
+
+	bool verbose_output()
+	{
+		return strcmp( verbose, "1" ) == 0;
 	}
 };
 

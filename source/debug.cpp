@@ -5,14 +5,14 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void debug::manta_vprintf( const bool newline, const char *format, va_list args )
+void Debug::manta_vprintf( const bool newline, const char *format, va_list args )
 {
 	vprintf( format, args );
 	if( newline ) { printf( "\n" ); }
 }
 
 
-void debug::manta_vprintf_color( const bool newline, unsigned char color, const char *format, va_list args )
+void Debug::manta_vprintf_color( const bool newline, unsigned char color, const char *format, va_list args )
 {
 	printf( "\x1b[%dm", color );
 	vprintf( format, args );
@@ -20,7 +20,7 @@ void debug::manta_vprintf_color( const bool newline, unsigned char color, const 
 }
 
 
-void debug::manta_printf( const bool newline, const char *format, ... )
+void Debug::manta_printf( const bool newline, const char *format, ... )
 {
 	va_list args;
 	va_start( args, format );
@@ -30,7 +30,7 @@ void debug::manta_printf( const bool newline, const char *format, ... )
 }
 
 
-void debug::manta_printf_color( const bool newline, unsigned char color, const char *format, ... )
+void Debug::manta_printf_color( const bool newline, unsigned char color, const char *format, ... )
 {
 	va_list args;
 	va_start( args, format );
@@ -41,70 +41,80 @@ void debug::manta_printf_color( const bool newline, unsigned char color, const c
 }
 
 
-void debug::exit( int code )
+void Debug::exit( int code )
 {
-	error::code = code;
+	iEngine::exitCode = code;
 	::exit( code );
 }
 
 
-void debug::manta_assert( const char *file, const char *function, const int line, const char *condition )
+void Debug::manta_assert( const char *file, const char *function, const int line, const char *condition )
 {
-	PrintLnColor( LOG_RED, "\n\n====================================================================================================" );
-	PrintColor( LOG_RED, "Assert:\n\tAssertion failed at %s, Function: %s (line: %d)\n\tCondition: %s\n", file, function, line, condition );
+	PrintColor( LOG_RED, "\n\nASSERTION:\n\n" );
+	PrintColor( LOG_RED, "> Failed: \"%s\"\n\n", condition );
+	PrintColor( LOG_RED, "> Called: %s:%d\n", file, line );
+	PrintColor( LOG_RED, "          %s\n\n", function );
+	PrintColor( LOG_RED, "\n" );
 
-	debug::exit( 1 );
+	Debug::exit( 1 );
 }
 
 
 
-void debug::manta_assert_message( const char *file, const char *function, const int line, const char *condition, const char *msg, ... )
+void Debug::manta_assert_message( const char *file, const char *function, const int line, const char *condition, const char *msg, ... )
 {
-	PrintLnColor( LOG_RED, "\n\n====================================================================================================" );
-	PrintColor( LOG_RED, "Assert:\n\tAssertion failed at %s, Function: %s (line: %d)\n\tCondition: %s\nMESSAGE:\n\t", file, function, line, condition );
+	PrintColor( LOG_RED, "\n\nASSERTION:\n\n" );
+	PrintColor( LOG_RED, "> Failed: \"%s\"\n\n", condition );
+	PrintColor( LOG_RED, "> Called: %s:%d\n", file, line );
+	PrintColor( LOG_RED, "          %s\n\n", function );
+
 	va_list args;
 	va_start( args, msg );
 	manta_vprintf_color( true, LOG_RED, msg, args );
 	va_end( args );
+	PrintColor( LOG_RED, "\n" );
 
-	debug::exit( 1 );
+	Debug::exit( 1 );
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace error
+namespace iEngine
 {
-	int code = 0;
+	int exitCode = 0;
+	bool memoryLeakDetection = true;
 }
-
 
 void Error( const char *format, ... )
 {
-	PrintLnColor( LOG_RED, "\n\n====================================================================================================" );
-	PrintColor( LOG_RED, "ERROR: " );
+	PrintColor( LOG_RED, "\n\nERROR:\n\n" );
 
 	va_list args;
 	va_start( args, format );
-	debug::manta_vprintf_color( true, LOG_RED, format, args );
+	Debug::manta_vprintf_color( true, LOG_RED, format, args );
 	va_end( args );
 
-	debug::exit( 1 );
+	PrintColor( LOG_RED, "\n" );
+
+	Debug::exit( 1 );
 }
 
 
 void ErrorIf( const bool condition, const char *format, ... )
 {
 	if( !condition ) { return; }
-	PrintLnColor( LOG_RED, "\n\n====================================================================================================" );
-	PrintColor( LOG_RED, "ERROR: " );
+
+	PrintColor( LOG_RED, "\n\nERROR:\n\n" );
 
 	va_list args;
 	va_start( args, format );
-	debug::manta_vprintf_color( true, LOG_RED, format, args );
+	Debug::manta_vprintf_color( true, LOG_RED, format, args );
 	va_end( args );
 
-	debug::exit( 1 );
+	PrintColor( LOG_RED, "\n" );
+
+	Debug::exit( 1 );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

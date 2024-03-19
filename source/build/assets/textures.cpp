@@ -15,8 +15,8 @@ GlyphID Texture::add_glyph( Texture2DBuffer &&textureBuffer )
 	AssertMsg( textureBuffer, "Trying to pack texture '%s' with invalid textureBuffer", name.c_str() );
 
 	// Make new Glyph and pass ownership of 'textureBuffer'
-	GlyphID glyphID = assets::glyphs.make_new( static_cast<Texture2DBuffer &&>( textureBuffer ) );
-	Glyph &glyph = assets::glyphs[glyphID];
+	GlyphID glyphID = Assets::glyphs.make_new( static_cast<Texture2DBuffer &&>( textureBuffer ) );
+	Glyph &glyph = Assets::glyphs[glyphID];
 	glyphs.add( glyphID );
 
 	// Return GlyphID
@@ -37,8 +37,8 @@ struct Space
 
 static int compare_glyphs( const GlyphID *a, const GlyphID *b )
 {
-	const Glyph &glyphA = assets::glyphs[*a];
-	const Glyph &glyphB = assets::glyphs[*b];
+	const Glyph &glyphA = Assets::glyphs[*a];
+	const Glyph &glyphB = Assets::glyphs[*b];
 	const Texture2DBuffer &A = glyphA.textureBuffer;
 	const Texture2DBuffer &B = glyphB.textureBuffer;
 	const int valueA = A.width + A.height;
@@ -100,7 +100,7 @@ void Texture::pack()
 		// Loop over Glyphs6
 		for( GlyphID glyphID : glyphs )
 		{
-			Glyph &glyph = assets::glyphs[glyphID];
+			Glyph &glyph = Assets::glyphs[glyphID];
 
 			// Loop over spaces back to front (smallest spaces are at the back of the list)
 			usize index = USIZE_MAX;
@@ -197,9 +197,9 @@ TextureID Textures::make_new( String &name, Texture2DBuffer &&textureBuffer )
 
 void Textures::write()
 {
-	Buffer &binary = assets::binary;
-	String &header = assets::header;
-	String &source = assets::source;
+	Buffer &binary = Assets::binary;
+	String &header = Assets::header;
+	String &source = Assets::source;
 
 	Timer timer;
 	usize sizeBytes = 0;
@@ -212,7 +212,7 @@ void Textures::write()
 			Assert( numGlyphs > 0 );
 
 			// Atlas Texture
-			if( numGlyphs >= 1 )
+			if( numGlyphs >= 1 && texture.atlasTexture )
 			{
 				// Pack Glyphs
 				texture.pack();
@@ -222,7 +222,7 @@ void Textures::write()
 
 				for( GlyphID glyphID : texture.glyphs )
 				{
-					Glyph &glyph = assets::glyphs[glyphID];
+					Glyph &glyph = Assets::glyphs[glyphID];
 					textureBuffer.splice( glyph.textureBuffer, 0, 0, glyph.textureBuffer.width, glyph.textureBuffer.height, glyph.x1, glyph.y1 );
 				}
 
@@ -232,21 +232,26 @@ void Textures::write()
 				sizeBytes += texture.width * texture.height * sizeof( rgba );
 
 				char path[PATH_SIZE];
-				strjoin( path, build::pathOutput, SLASH "generated" SLASH, ( texture.name + "_atlas.png" ).c_str() );
+				strjoin( path, Build::pathOutput, SLASH "generated" SLASH, ( texture.name + "_atlas.png" ).c_str() );
 				textureBuffer.save( path );
 			}
 			// Independent Texture
 			else if( numGlyphs == 1 )
 			{
-				Glyph &glyph = assets::glyphs[texture.glyphs[0]];
+				Glyph &glyph = Assets::glyphs[texture.glyphs[0]];
+				texture.width = glyph.textureBuffer.width;
+				texture.height = glyph.textureBuffer.height;
 
 				// Write Binary
 				texture.offset = binary.tell;
 				binary.write( glyph.textureBuffer.data, texture.width * texture.height * sizeof( rgba ) );
+				sizeBytes += texture.width * texture.height * sizeof( rgba );
 
-				char path[PATH_SIZE];
-				strjoin( path, build::pathOutput, SLASH "generated" SLASH, ( texture.name + ".png" ).c_str() );
-				glyph.textureBuffer.save( path );
+				#if 0
+					char path[PATH_SIZE];
+					strjoin( path, Build::pathOutput, SLASH "generated" SLASH, ( texture.name + ".png" ).c_str() );
+					glyph.textureBuffer.save( path );
+				#endif
 			}
 			else
 			{
@@ -268,7 +273,7 @@ void Textures::write()
 			"u16 height;" );
 
 		// Table
-		header.append( "namespace assets\n{\n" );
+		header.append( "namespace Assets\n{\n" );
 		header.append( "\tconstexpr u32 texturesCount = " ).append( static_cast<int>( textures.size() ) ).append( ";\n" );
 		header.append( "\textern const DiskTexture textures[];\n" );
 		header.append( "}\n\n" );
@@ -278,7 +283,7 @@ void Textures::write()
 	{
 		// Group
 		assets_group( source );
-		source.append( "namespace assets\n{\n" );
+		source.append( "namespace Assets\n{\n" );
 
 		// Table
 		source.append( "\tconst DiskTexture textures[texturesCount] =\n\t{\n" );
@@ -299,7 +304,7 @@ void Textures::write()
 	if( verbose_output() )
 	{
 		const usize count = textures.size();
-		PrintColor( LOG_CYAN, "\t\tWrote %d texture%s - %.2f mb", count, count == 1 ? "s" : "", sizeBytes / 1024.0f / 1024.0f );
+		PrintColor( LOG_CYAN, "\t\tWrote %d texture%s - %.2f mb", count, count == 1 ? "" : "s", MB( sizeBytes ) );
 		PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() );
 	}
 }

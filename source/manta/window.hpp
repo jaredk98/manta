@@ -5,16 +5,18 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace iwindow
+namespace iWindow
 {
 	extern bool init( const i32 width = WINDOW_WIDTH_DEFAULT, const i32 height = WINDOW_HEIGHT_DEFAULT );
+	extern bool free();
 	extern void show();
 	extern void poll();
+	extern void mouse_set_position( const int x, const int y );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace window
+namespace Window
 {
 	extern i32 width;
 	extern i32 height;

@@ -24,7 +24,7 @@
 @interface GameApplication : NSApplication @end
 @implementation GameApplication
 
-//- (void)terminate:(id)sender { engine::exit(); }
+//- (void)terminate:(id)sender { Engine::exit(); }
 
 @end
 
@@ -51,12 +51,12 @@
 }
 
 // Toggling fullscreen is asynch in Cocoa, so these callbacks tell us
-- (void)windowDidEnterFullScreen:(NSNotification *)notification { window::fullscreen = true; }
-- (void)windowDidExitFullScreen:(NSNotification *)notification  { window::fullscreen = false; }
+- (void)windowDidEnterFullScreen:(NSNotification *)notification { Window::fullscreen = true; }
+- (void)windowDidExitFullScreen:(NSNotification *)notification  { Window::fullscreen = false; }
 
 // Called when the window gains/loses focus
-- (void)windowDidBecomeKey:(NSNotification *)notification { window::hasFocus = true; }
-- (void)windowDidResignKey:(NSNotification *)notification { window::hasFocus = false; }
+- (void)windowDidBecomeKey:(NSNotification *)notification { Window::hasFocus = true; }
+- (void)windowDidResignKey:(NSNotification *)notification { Window::hasFocus = false; }
 
 @end
 
@@ -71,7 +71,7 @@
 // A regular key was pressed or released
 - (void)keyDown: (NSEvent *)event
 	{
-		ikeyboard::keyboards[ikeyboard::primary].keyCurrent[event.keyCode] = true;
+		iKeyboard::keyboards[iKeyboard::primary].keyCurrent[event.keyCode] = true;
 
 		/*
 		// Keyboard Input Text
@@ -80,63 +80,63 @@
 		*/
 	}
 
-- (void)keyUp: (NSEvent *)event { ikeyboard::keyboards[ikeyboard::primary].keyCurrent[event.keyCode] = false; }
+- (void)keyUp: (NSEvent *)event { iKeyboard::keyboards[iKeyboard::primary].keyCurrent[event.keyCode] = false; }
 
 // A modifier key was pressed or released
 - (void)flagsChanged: (NSEvent *)event
 {
 	NSUInteger flags = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask;
-	ikeyboard::keyboards[ikeyboard::primary].keyCurrent[vk_shift] = flags & NSEventModifierFlagShift;
-	ikeyboard::keyboards[ikeyboard::primary].keyCurrent[vk_control] = flags & NSEventModifierFlagControl;
-	ikeyboard::keyboards[ikeyboard::primary].keyCurrent[vk_alt] = flags & NSEventModifierFlagOption;
-	ikeyboard::keyboards[ikeyboard::primary].keyCurrent[vk_command] = flags & NSEventModifierFlagCommand;
+	iKeyboard::keyboards[iKeyboard::primary].keyCurrent[vk_shift] = flags & NSEventModifierFlagShift;
+	iKeyboard::keyboards[iKeyboard::primary].keyCurrent[vk_control] = flags & NSEventModifierFlagControl;
+	iKeyboard::keyboards[iKeyboard::primary].keyCurrent[vk_alt] = flags & NSEventModifierFlagOption;
+	iKeyboard::keyboards[iKeyboard::primary].keyCurrent[vk_command] = flags & NSEventModifierFlagCommand;
 }
 
 // Left Mouse Button
 - (void)mouseDown: (NSEvent *)event
 	{
-		if( !ikeyboard::keyboards[ikeyboard::primary].keyCurrent[vk_control] )
+		if( !iKeyboard::keyboards[iKeyboard::primary].keyCurrent[vk_control] )
 		{
-			imouse::mice[imouse::primary].buttonCurrent |= mb_left;
+			iMouse::mice[iMouse::primary].buttonCurrent |= mb_left;
 		}
 		else
 		{
-			imouse::mice[imouse::primary].buttonCurrent |= mb_middle;
+			iMouse::mice[iMouse::primary].buttonCurrent |= mb_middle;
 		}
 	}
 - (void)mouseUp: (NSEvent *)event
 	{
-		imouse::mice[imouse::primary].buttonCurrent &= ~mb_left;
-		if( ikeyboard::keyboards[ikeyboard::primary].keyCurrent[vk_control] ) { imouse::mice[imouse::primary].buttonCurrent  &= ~mb_middle; }
+		iMouse::mice[iMouse::primary].buttonCurrent &= ~mb_left;
+		if( iKeyboard::keyboards[iKeyboard::primary].keyCurrent[vk_control] ) { iMouse::mice[iMouse::primary].buttonCurrent  &= ~mb_middle; }
 	}
-- (void)rightMouseDown:(NSEvent *)event { imouse::mice[imouse::primary].buttonCurrent |= mb_right; }
-- (void)rightMouseUp: (NSEvent *)event { imouse::mice[imouse::primary].buttonCurrent &= ~mb_right; }
-- (void)otherMouseDown: (NSEvent *)event { imouse::mice[imouse::primary].buttonCurrent |= mb_middle; }
-- (void)otherMouseUp: (NSEvent *)event { imouse::mice[imouse::primary].buttonCurrent &= ~mb_middle; }
+- (void)rightMouseDown:(NSEvent *)event { iMouse::mice[iMouse::primary].buttonCurrent |= mb_right; }
+- (void)rightMouseUp: (NSEvent *)event { iMouse::mice[iMouse::primary].buttonCurrent &= ~mb_right; }
+- (void)otherMouseDown: (NSEvent *)event { iMouse::mice[iMouse::primary].buttonCurrent |= mb_middle; }
+- (void)otherMouseUp: (NSEvent *)event { iMouse::mice[iMouse::primary].buttonCurrent &= ~mb_middle; }
 - (void)scrollWheel: (NSEvent *)event
 	{
 		if( event.deltaY > 0 )
 		{
-			imouse::mice[imouse::primary].wheelY = -1; // up
-			imouse::mice[imouse::primary].wheelYVelocity = static_cast<float>( event.deltaY ) * 0.25f;
+			iMouse::mice[iMouse::primary].wheelY = -1; // up
+			iMouse::mice[iMouse::primary].wheelYVelocity = static_cast<float>( event.deltaY ) * 0.25f;
 		}
 
 		else if( event.deltaY < 0 )
 		{
-			imouse::mice[imouse::primary].wheelY = 1; // down
-			imouse::mice[imouse::primary].wheelYVelocity = static_cast<float>( -event.deltaY ) * 0.25f;
+			iMouse::mice[iMouse::primary].wheelY = 1; // down
+			iMouse::mice[iMouse::primary].wheelYVelocity = static_cast<float>( -event.deltaY ) * 0.25f;
 		}
 
 		if( event.deltaX > 0 )
 		{
-			imouse::mice[imouse::primary].wheelX = 1; // right
-			imouse::mice[imouse::primary].wheelXVelocity = static_cast<float>( event.deltaX ) * 0.25f;
+			iMouse::mice[iMouse::primary].wheelX = 1; // right
+			iMouse::mice[iMouse::primary].wheelXVelocity = static_cast<float>( event.deltaX ) * 0.25f;
 		}
 
 		else if( event.deltaX < 0 )
 		{
-			imouse::mice[imouse::primary].wheelX = -1; // left
-			imouse::mice[imouse::primary].wheelXVelocity = static_cast<float>( -event.deltaX ) * 0.25f;
+			iMouse::mice[iMouse::primary].wheelX = -1; // left
+			iMouse::mice[iMouse::primary].wheelXVelocity = static_cast<float>( -event.deltaX ) * 0.25f;
 		}
 	}
 
@@ -152,10 +152,10 @@
 		return;
 	}
 
-	imouse::mice[imouse::primary].xPrevious = imouse::mice[imouse::primary].x;
-	imouse::mice[imouse::primary].yPrevious = imouse::mice[imouse::primary].y;
-	imouse::mice[imouse::primary].x = static_cast<float>( point.x );
-	imouse::mice[imouse::primary].y = static_cast<float>( frame.size.height - point.y );
+	iMouse::mice[iMouse::primary].xPrevious = iMouse::mice[iMouse::primary].x;
+	iMouse::mice[iMouse::primary].yPrevious = iMouse::mice[iMouse::primary].y;
+	iMouse::mice[iMouse::primary].x = static_cast<float>( point.x );
+	iMouse::mice[iMouse::primary].y = static_cast<float>( frame.size.height - point.y );
 }
 
 // For some reason, when a mouse button is being held down, cocoa doesn't send
@@ -168,9 +168,9 @@
 // The view was resized
 - (void)drawRect:(NSRect)dirtyRect
 {
-	window::width = static_cast<i32>( dirtyRect.size.width );
-	window::height = static_cast<i32>( dirtyRect.size.height );
-	window::resized = true;
+	Window::width = static_cast<i32>( dirtyRect.size.width );
+	Window::height = static_cast<i32>( dirtyRect.size.height );
+	Window::resized = true;
 	Gfx::viewport_update();
 }
 
@@ -178,7 +178,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace iwindow
+namespace iWindow
 {
 	NSView *view;
 	static NSAutoreleasePool *pool;
@@ -187,9 +187,9 @@ namespace iwindow
 	bool init( const i32 defaultWidth, const i32 defaultHeight )
 	{
 		// TODO
-		window::width = defaultWidth;
-		window::height = defaultHeight;
-		window::resized = true;
+		Window::width = defaultWidth;
+		Window::height = defaultHeight;
+		Window::resized = true;
 
 		// Lazy-initialize the application singleton into the global 'NSApp' variable
 		[GameApplication sharedApplication];
@@ -202,10 +202,10 @@ namespace iwindow
 		// Get Screen Size
 		NSScreen *screen = [NSScreen mainScreen];
 		NSRect area = [screen frame];
-		window::scale = [screen backingScaleFactor];
+		Window::scale = [screen backingScaleFactor];
 
 		// Create Window
-		iwindow::window = [[GameWindow alloc] initWithContentRect: NSMakeRect( static_cast<int>( area.size.width - defaultWidth ) >> 1,
+		iWindow::window = [[GameWindow alloc] initWithContentRect: NSMakeRect( static_cast<int>( area.size.width - defaultWidth ) >> 1,
 																			   static_cast<int>( area.size.height - defaultHeight ) >> 1,
 																			   defaultWidth, defaultHeight )
 																			   styleMask: WINDOW_STYLE
@@ -213,20 +213,20 @@ namespace iwindow
 																			   defer: NO ];
 
 		// Check Window
-		if( iwindow::window == nil )
+		if( iWindow::window == nil )
 			{ ErrorReturnMsg( false, "COCOA: Failed to create cocoa window" ); }
 
 		// Create Window View
-		iwindow::view = [GameView new];
+		iWindow::view = [GameView new];
 
 		// Setup Window Properties
-		[iwindow::window setContentView: iwindow::view];
-		[iwindow::window makeFirstResponder: iwindow::view];
-		[iwindow::window setDelegate: (id)[GameWindowDelegate new]];
-		[iwindow::window setAcceptsMouseMovedEvents: YES];
-		[iwindow::window setTitle: @WINDOW_TITLE];
-		[iwindow::window setRestorable: NO];
-		[iwindow::window setContentMinSize: NSMakeSize( WINDOW_WIDTH_MIN, WINDOW_WIDTH_MAX ) ];
+		[iWindow::window setContentView: iWindow::view];
+		[iWindow::window makeFirstResponder: iWindow::view];
+		[iWindow::window setDelegate: (id)[GameWindowDelegate new]];
+		[iWindow::window setAcceptsMouseMovedEvents: YES];
+		[iWindow::window setTitle: @WINDOW_TITLE];
+		[iWindow::window setRestorable: NO];
+		[iWindow::window setContentMinSize: NSMakeSize( WINDOW_WIDTH_MIN, WINDOW_WIDTH_MAX ) ];
 
 		// Setup Apple Menu
 		// TODO
@@ -242,14 +242,23 @@ namespace iwindow
 		return true;
 	}
 
+
+	bool free()
+	{
+		// Success
+		return true;
+	}
+
+
 	void show()
 	{
 		// Bring the Application into focus
 		[NSApp activateIgnoringOtherApps: YES];
 
 		// Bring the Window into focus
-		[iwindow::window makeKeyAndOrderFront: nil];
+		[iWindow::window makeKeyAndOrderFront: nil];
 	}
+
 
 	void poll()
 	{
@@ -277,11 +286,29 @@ namespace iwindow
 		// Next, create the pool for the next frame
 		pool = [NSAutoreleasePool new];
 	}
+
+
+	void mouse_set_position( const int x, const int y )
+	{
+		NSPoint newPoint = NSMakePoint( x, y );
+
+		NSEvent *mouseEvent = [ NSEvent mouseEventWithType: NSMouseMoved
+		                                location: newPoint
+		                                modifierFlags: 0
+		                                timestamp: 0
+		                                windowNumber: [ NSApp mainWindow ].windowNumber
+		                                context: nil
+		                                eventNumber: 0
+		                                clickCount: 0
+		                                pressure: 0 ];
+
+		[NSApp postEvent: mouseEvent atStart: NO];
+	}
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace window
+namespace Window
 {
 	void show_message( const char *title, const char *message )
 	{
@@ -293,33 +320,35 @@ namespace window
 		[alert runModal];
 	}
 
+
 	bool resize( i32 width, i32 height )
 	{
 		// Resize Window
 		NSRect contentRect = { { 0, 0 }, { static_cast<CGFloat>( width ), static_cast<CGFloat>( height ) } };
-		NSRect frame = [iwindow::window frameRectForContentRect:contentRect];
+		NSRect frame = [iWindow::window frameRectForContentRect:contentRect];
 
 		// Receneter window
 		NSRect screenRect = [[NSScreen mainScreen] frame];
 		frame.origin.x = ( screenRect.size.width - frame.size.width ) / 2;
 		frame.origin.y = ( screenRect.size.height - frame.size.height ) / 2;
 
-		[iwindow::window setFrame:frame display:YES animate:YES];
+		[iWindow::window setFrame:frame display:YES animate:YES];
 
 		// Success
 		return true;
 	}
 
+
 	void fullscreen_set( bool enabled )
 	{
-		if( fullscreen != window::fullscreen )
+		if( fullscreen != Window::fullscreen )
 		{
-			[iwindow::window toggleFullScreen:nil];
+			[iWindow::window toggleFullScreen:nil];
 
 			// HACK
 			for( int i = 0; i < 255; i++ )
 			{
-				ikeyboard::keyboards[ikeyboard::primary].keyCurrent[i] = false;
+				iKeyboard::keyboards[iKeyboard::primary].keyCurrent[i] = false;
 			}
 		}
 	}

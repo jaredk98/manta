@@ -3,36 +3,31 @@
 //
 // Shader API
 //
-// The sole purpose of this header is to provide IDE syntax highlighting for .shader files without the need for
-// a custom plugin/language server. In short, this file defines C++ macros, structs, and functions that
-// let us to treat .shader files as .cpp files such that IntelliSense and IDE syntax highlighting
-// can piggyback off a typical, unmodified C++ language server.
+// The purpose of this header is to provide syntax highlighting and autocomplete for .shader files without the
+// need for a custom language server. In short, this file defines C++ macros, structs, and functions that
+// let us to treat .shader files as C++ files.
 //
-// This header is NOT compiled.
+// This header is NOT compiled!
 //
-// Upon "compilation" of .shader files in build.exe, the '#include <shader_api.hpp>' is redirected to
-// source/build/shaders/to_<target>/shader_api.hpp. Those headers provide preprocessor macros to convert
-// .shader intrinsic functions and built-in types (HLSL-like) to the target language equivalents.
-//
-// The shader compilation pipeline works as follows:
-//     1. build.exe searches engine and project directories for .shader files
-//     2. build.exe checks if a .shader file contains vertex_main(), fragment_main(), or compute_main()
-//     3. build.exe runs clang/gcc preprocessor on the .shader file for C-like macros and #includes
-//     4. build.exe parses the preprocessed .shader files and applies the target language translations
-//     5. build.exe writes the finished .glsl/.hlsl/.metal files
-//     6. build.exe compiles and packs the .glsl/.hlsl/.metal shaders into the project .bin
+// The shader compilation works as follows:
+//     1. build.exe searches for '.shader' files
+//     2. build.exe runs msvc/clang/gcc preprocessor on the '.shader' to resolve # directives, includes, and comments
+//     3. build.exe parses the preprocessed output and and builds an AST representation of the shader program
+//     4. build.exe generates .glsl/.hlsl/.metal output code based on the AST (output/generated/shaders)
+//     5. build.exe generates gfx.generated.hpp/cpp containing vertex layouts and shader metadata (for CPU engine use)
+//     6. build.exe compiles and packs the .glsl/.hlsl/.metal shaders into the project binary
 //
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define operator_overloads( type ) \
-	template <typename T> type operator*( T other ); \
+#define operator_overloads( type )                    \
+	template <typename T> type operator*( T other );  \
 	template <typename T> type operator*=( T other ); \
-	template <typename T> type operator/( T other ); \
+	template <typename T> type operator/( T other );  \
 	template <typename T> type operator/=( T other ); \
-	template <typename T> type operator+( T other ); \
+	template <typename T> type operator+( T other );  \
 	template <typename T> type operator+=( T other ); \
-	template <typename T> type operator-( T other ); \
+	template <typename T> type operator-( T other );  \
 	template <typename T> type operator-=( T other ); \
 	template <typename T> bool operator==( T other ); \
 	template <typename T> bool operator!=( T other );
@@ -40,26 +35,49 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Keywords
 
-#define gfxbuffer struct
-#define in In
-#define out Out
+// Constant Buffer Slot
+#define cbuffer(slot) struct
 
-#define SEMANTIC(x)
-#define REGISTER(x)
-#define RENDER_TARGET(x)
+// Render Target Slot
+#define target(slot)
 
-#define POSITION
-#define TEXCOORD
-#define COLOR
-#define NORMAL
-#define TANGENT
-#define BINORMAL
-#define DEPTH
-#define VIEW
-#define WORLD
-#define INSTANCEID
-#define BINDINDICES
-#define PSIZE
+// Options: POSITION, TEXCOORD, NORMAL, DEPTH, COLOR
+#define semantic(s)
+	#define POSITION
+	#define TEXCOORD
+	#define NORMAL
+	#define DEPTH
+	#define COLOR
+
+// Options: UNORM8, UNORM16, UNORM32, SNORM8, SNORM16, SNORM32, UINT8, UINT16, UINT32, SINT8, SINT16, SINT32, FLOAT16, FLOAT32
+#define format(f)
+	#define UNORM8
+	#define UNORM16
+	#define UNORM32
+	#define SNORM8
+	#define SNORM16
+	#define SNORM32
+	#define UINT8
+	#define UINT16
+	#define UINT32
+	#define SINT8
+	#define SINT16
+	#define SINT32
+	#define FLOAT16
+	#define FLOAT32
+
+#define vertex_input struct
+#define vertex_output struct
+#define fragment_input struct
+#define fragment_output struct
+#define compute_input struct
+#define compute_output struct
+
+#define in
+#define out
+#define inout
+
+#define discard
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Base Types
@@ -69,17 +87,17 @@ using uint = unsigned int;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Vector 2D
 
-#define vector_type_2( type ) \
-	struct type##2 { \
-		type##2() = default; \
-		type##2( type x, type y ); \
-		type##2( type v ); \
+#define vector_type_2( type )          \
+	struct type##2 {                   \
+		type##2() = default;           \
+		type##2( type v );             \
+		type##2( type x, type y );     \
 		operator_overloads( type##2 ); \
 		type &operator[]( int index ); \
-		union { \
-			type x, y; \
-			type r, g; \
-		}; \
+		union {                        \
+			type x, y;                 \
+			type r, g;                 \
+		};                             \
 	};
 
 vector_type_2( float );
@@ -91,21 +109,23 @@ vector_type_2( double );
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Vector 3D
 
-#define vector_type_3( type ) \
-	struct type##3 { \
-		type##3() = default; \
-		type##3( type x, type y, type z = 0 ); \
-		type##3( type v ); \
-		operator_overloads( type##3 ); \
-		type &operator[]( int index ); \
-		union { \
-			type x, y, z; \
-			type r, g, b; \
-			type##2 xy; \
-			type##2 rg; \
-			type##2 yz; \
-			type##2 gb; \
-		}; \
+#define vector_type_3( type )              \
+	struct type##3 {                       \
+		type##3() = default;               \
+		type##3( type v );                 \
+		type##3( type x, type y, type z ); \
+		type##3( type##2 xy, type z );     \
+		type##3( type x, type##2 yz );     \
+		operator_overloads( type##3 );     \
+		type &operator[]( int index );     \
+		union {                            \
+			type x, y, z;                  \
+			type r, g, b;                  \
+			type##2 xy;                    \
+			type##2 rg;                    \
+			type##2 yz;                    \
+			type##2 gb;                    \
+		};                                 \
 	};
 
 vector_type_3( float );
@@ -117,27 +137,33 @@ vector_type_3( double );
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Vector 4D
 
-#define vector_type_4( type ) \
-	struct type##4 { \
-		type##4() = default; \
-		type##4( type x, type y, type z = 0, type w = 0 ); \
-		type##4( type v ); \
-		operator_overloads( type##4 ); \
-		type &operator[]( int index ); \
-		union { \
-			type x, y, z, w; \
-			type r, g, b, a; \
-			type##2 xy; \
-			type##2 rg; \
-			type##2 yz; \
-			type##2 gb; \
-			type##2 zw; \
-			type##2 ba; \
-			type##3 xyz; \
-			type##3 rgb; \
-			type##3 yzw; \
-			type##3 gba; \
-		}; \
+#define vector_type_4( type )                      \
+	struct type##4 {                               \
+		type##4() = default;                       \
+		type##4( type v );                         \
+		type##4( type x, type y, type z, type w ); \
+		type##4( type##3 xyz, type w );            \
+		type##4( type x, type##3 yzw );            \
+		type##4( type##2 xy, type z, type w ); );  \
+		type##4( type x, type##2 yz, type w ); );  \
+		type##4( type x, type w, type##2 zw ); );  \
+		type##4( type##2 xy, type##2 zw );         \
+		operator_overloads( type##4 );             \
+		type &operator[]( int index );             \
+		union {                                    \
+			type x, y, z, w;                       \
+			type r, g, b, a;                       \
+			type##2 xy;                            \
+			type##2 rg;                            \
+			type##2 yz;                            \
+			type##2 gb;                            \
+			type##2 zw;                            \
+			type##2 ba;                            \
+			type##3 xyz;                           \
+			type##3 rgb;                           \
+			type##3 yzw;                           \
+			type##3 gba;                           \
+		};                                         \
 	};
 
 vector_type_4( float );
@@ -186,19 +212,37 @@ struct float4x4
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Texures & Samplers
+// Texures
 
-struct _texture2D;
+struct Texture1D { };
+struct Texture1DArray { };
+struct Texture2D { };
+struct Texture2DArray { };
+struct Texture3D { };
+struct TextureCube { };
+struct TextureCubeArray { };
 
-#define Texture2D _texture2D;
+#define texture1D(slot)        Texture1D
+#define texture1DArray(slot)   Texture1D
+#define texture2D(slot)        Texture2D
+#define texture2DArray(slot)   Texture2D
+#define texture3D(slot)        Texture3D
+#define textureCube(slot)      TextureCube
+#define textureCubeArray(slot) TextureArray
+
+// Intrinsics
+
+float4 sample_texture1D( Texture1D texture, float x );
+float4 sample_texture1DArray( Texture1DArray texture, float x );
+float4 sample_texture2D( Texture2D texture, float2 uv );
+float4 sample_texture2DArray( Texture2DArray texture, float2 uv );
+float4 sample_texture3D( Texture3D texture, float3 xyz );
+float4 sample_texture2DLevel( Texture2D texture, float2 uv );
+
+template <typename A, typename B> B mul( A a, B b );
 
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Bindings
 
-//template <typename A, typename B> auto mul( A a, B b ) { return a * b; }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #if 0
 

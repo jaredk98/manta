@@ -1,6 +1,6 @@
 rule compile
   deps = msvc
-  command = cl $in -Fo:$out -c -showIncludes -nologo -std:c++20 -EHsc -DUNICODE -W4 -wd4100 -wd4101 -wd4189 -wd4201 -wd4244 -wd4456 -wd4458 -wd4459 -wd4505 -wd4702 -I"..\..\..\..\source" -I"..\generated" -I"..\..\build"
+  command = cl $in -Fo:$out -c -showIncludes -nologo -std:c++20 -EHsc -DUNICODE -W4 -wd4100 -wd4101 -wd4189 -wd4201 -wd4244 -wd4456 -wd4458 -wd4459 -wd4505 -wd4702 -wd4996 -I"..\..\..\..\source" -I"..\generated" -I"..\..\build"
 
 rule link
   command = link $in -out:$out -nologo -DEBUG winmm.lib 
@@ -10,23 +10,32 @@ build objects\projects\asteroids\build\build.obj: compile ..\..\..\..\projects\a
 build objects\source\debug.obj: compile ..\..\..\..\source\debug.cpp
 build objects\source\build\assets\fonts.obj: compile ..\..\..\..\source\build\assets\fonts.cpp
 build objects\source\build\assets\glyphs.obj: compile ..\..\..\..\source\build\assets\glyphs.cpp
+build objects\source\build\assets\materials.obj: compile ..\..\..\..\source\build\assets\materials.cpp
+build objects\source\build\assets\meshes.obj: compile ..\..\..\..\source\build\assets\meshes.cpp
 build objects\source\build\assets\sprites.obj: compile ..\..\..\..\source\build\assets\sprites.cpp
 build objects\source\build\assets\textures.obj: compile ..\..\..\..\source\build\assets\textures.cpp
 build objects\source\build\assets.obj: compile ..\..\..\..\source\build\assets.cpp
-build objects\source\build\binary.obj: compile ..\..\..\..\source\build\binary.cpp
 build objects\source\build\buffer.obj: compile ..\..\..\..\source\build\buffer.cpp
 build objects\source\build\build.obj: compile ..\..\..\..\source\build\build.cpp
 build objects\source\build\fileio.obj: compile ..\..\..\..\source\build\fileio.cpp
+build objects\source\build\gfx.obj: compile ..\..\..\..\source\build\gfx.cpp
 build objects\source\build\json.obj: compile ..\..\..\..\source\build\json.cpp
 build objects\source\build\list.obj: compile ..\..\..\..\source\build\list.cpp
 build objects\source\build\memory.obj: compile ..\..\..\..\source\build\memory.cpp
 build objects\source\build\objects.obj: compile ..\..\..\..\source\build\objects.cpp
-build objects\source\build\shaders.obj: compile ..\..\..\..\source\build\shaders.cpp
+build objects\source\build\objloader.obj: compile ..\..\..\..\source\build\objloader.cpp
+build objects\source\build\shaders\compiler.obj: compile ..\..\..\..\source\build\shaders\compiler.cpp
+build objects\source\build\shaders\compiler.generator.obj: compile ..\..\..\..\source\build\shaders\compiler.generator.cpp
+build objects\source\build\shaders\compiler.generator.glsl.obj: compile ..\..\..\..\source\build\shaders\compiler.generator.glsl.cpp
+build objects\source\build\shaders\compiler.generator.hlsl.obj: compile ..\..\..\..\source\build\shaders\compiler.generator.hlsl.cpp
+build objects\source\build\shaders\compiler.generator.metal.obj: compile ..\..\..\..\source\build\shaders\compiler.generator.metal.cpp
+build objects\source\build\shaders\compiler.optimizer.obj: compile ..\..\..\..\source\build\shaders\compiler.optimizer.cpp
+build objects\source\build\shaders\compiler.parser.obj: compile ..\..\..\..\source\build\shaders\compiler.parser.cpp
 build objects\source\build\string.obj: compile ..\..\..\..\source\build\string.cpp
 build objects\source\build\textureio.obj: compile ..\..\..\..\source\build\textureio.cpp
-build objects\source\build\timer.obj: compile ..\..\..\..\source\build\timer.cpp
+build objects\source\build\time.obj: compile ..\..\..\..\source\build\time.cpp
 build objects\source\vendor\crc32.obj: compile ..\..\..\..\source\vendor\crc32.cpp
 build objects\source\vendor\stb\stb_image.obj: compile ..\..\..\..\source\vendor\stb\stb_image.cpp
 build objects\source\vendor\stb\stb_truetype.obj: compile ..\..\..\..\source\vendor\stb\stb_truetype.cpp
 
-build build.exe: link objects\projects\asteroids\build\build.obj objects\source\debug.obj objects\source\build\assets\fonts.obj objects\source\build\assets\glyphs.obj objects\source\build\assets\sprites.obj objects\source\build\assets\textures.obj objects\source\build\assets.obj objects\source\build\binary.obj objects\source\build\buffer.obj objects\source\build\build.obj objects\source\build\fileio.obj objects\source\build\json.obj objects\source\build\list.obj objects\source\build\memory.obj objects\source\build\objects.obj objects\source\build\shaders.obj objects\source\build\string.obj objects\source\build\textureio.obj objects\source\build\timer.obj objects\source\vendor\crc32.obj objects\source\vendor\stb\stb_image.obj objects\source\vendor\stb\stb_truetype.obj 
+build build.exe: link objects\projects\asteroids\build\build.obj objects\source\debug.obj objects\source\build\assets\fonts.obj objects\source\build\assets\glyphs.obj objects\source\build\assets\materials.obj objects\source\build\assets\meshes.obj objects\source\build\assets\sprites.obj objects\source\build\assets\textures.obj objects\source\build\assets.obj objects\source\build\buffer.obj objects\source\build\build.obj objects\source\build\fileio.obj objects\source\build\gfx.obj objects\source\build\json.obj objects\source\build\list.obj objects\source\build\memory.obj objects\source\build\objects.obj objects\source\build\objloader.obj objects\source\build\shaders\compiler.obj objects\source\build\shaders\compiler.generator.obj objects\source\build\shaders\compiler.generator.glsl.obj objects\source\build\shaders\compiler.generator.hlsl.obj objects\source\build\shaders\compiler.generator.metal.obj objects\source\build\shaders\compiler.optimizer.obj objects\source\build\shaders\compiler.parser.obj objects\source\build\string.obj objects\source\build\textureio.obj objects\source\build\time.obj objects\source\vendor\crc32.obj objects\source\vendor\stb\stb_image.obj objects\source\vendor\stb\stb_truetype.obj 

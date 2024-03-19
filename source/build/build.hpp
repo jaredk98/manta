@@ -11,11 +11,10 @@
 #include <build/assets/sprites.hpp>
 
 #include <build/arguments.hpp>
-#include <build/binary.hpp>
 #include <build/objects.hpp>
 #include <build/toolchains.hpp>
 #include <build/fileio.hpp>
-#include <build/timer.hpp>
+#include <build/time.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -28,7 +27,7 @@ struct Source
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace build
+namespace Build
 {
 	// Paths
 	extern char pathEngine[PATH_SIZE];
@@ -37,7 +36,9 @@ namespace build
 	extern char pathOutputBoot[PATH_SIZE];
 	extern char pathOutputBuild[PATH_SIZE];
 	extern char pathOutputGenerated[PATH_SIZE];
+	extern char pathOutputGeneratedShaders[PATH_SIZE];
 	extern char pathOutputRuntime[PATH_SIZE];
+	extern char pathOutputRuntimeDistributables[PATH_SIZE];
 	extern char pathOutputPackage[PATH_SIZE];
 	extern char pathOutputBuildCache[PATH_SIZE];
 
@@ -76,8 +77,9 @@ namespace build
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct BuildCore
+class BuilderCore
 {
+public:
 	// Build
 	virtual void build( int argc, char **argv );
 	virtual void build_cache();
@@ -97,7 +99,7 @@ struct BuildCore
 	virtual void assets_build();
 	virtual void assets_write();
 
-	// Shaders
+	// Graphics
 	virtual void shaders_gather();
 	virtual void shaders_cache();
 	virtual void shaders_build();
@@ -107,7 +109,7 @@ struct BuildCore
 	virtual void binary_cache();
 	virtual void binary_write();
 
-	// Compile / Ninja
+	// Compile
 	virtual void compile_project();
 	virtual void compile_engine();
 	virtual void compile_write_ninja();
@@ -115,9 +117,6 @@ struct BuildCore
 
 	// Run
 	virtual void executable_run( int argc, char **argv );
-
-	// Error
-	//virtual void ErrorIf( const bool condition, const char *message, ... );
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

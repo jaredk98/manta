@@ -5,6 +5,61 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+enum
+{
+	RGBA8,
+	R10G10B10A2,
+	R8,
+	R8G8,
+	R16,
+	R16G16,
+	R24G8,
+	R32,
+};
+
+struct rgba8
+{
+	u8 r, g, b, a;
+};
+
+struct r10g10b10a2
+{
+	u8 r, g, b, a;
+};
+
+struct r8
+{
+	u8 r;
+};
+
+struct r8g8
+{
+	u8 r, g;
+};
+
+struct r16
+{
+	u16 r;
+};
+
+struct r16g16
+{
+	u16 r, g;
+};
+
+struct r24g8
+{
+	u32 r : 24;
+	u32 g : 8;
+};
+
+struct r32
+{
+	u32 r;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Color;
 struct ColorHSV;
 
@@ -15,7 +70,7 @@ extern struct ColorHSV color_rgb_to_hsv( const struct Color &color );
 
 struct Color
 {
-	Color( const u8 r = 0, const u8 g = 0, const u8 b = 0, const u8 a = 255 ) : r( r ), g( g ), b( b ), a( a ) { }
+	constexpr Color( const u8 r = 0, const u8 g = 0, const u8 b = 0, const u8 a = 255 ) : r( r ), g( g ), b( b ), a( a ) { }
 
 	u8 r, g, b, a;
 
@@ -115,24 +170,24 @@ struct ColorHSV
 
 struct ColorGrade
 {
-	float hue = 1.0f; //  0.0 to 1.0 - Default: 1.0
+	float hue = 1.0f;           //  0.0 to 1.0 - Default: 1.0
 	float hueMergeRatio = 0.0f; //  0.0 to 1.0 - Default: 0.0
-	float saturation = 1.0f; //  0.0 to 2.0 - Default: 1.0
-	float brightness = 1.10f; //  0.0 to 2.0 - Default: 1.0
-	float contrast = 1.25f; //  0.0 to 2.0 - Default: 1.0
+	float saturation = 1.0f;    //  0.0 to 2.0 - Default: 1.0
+	float brightness = 1.10f;   //  0.0 to 2.0 - Default: 1.0
+	float contrast = 1.25f;     //  0.0 to 2.0 - Default: 1.0
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static inline Color color_make_bw( const u8 l ) { return Color( l, l, l, 255 ); }
-static inline Color color_make_bw( const float brightness )
+inline Color color_make_bw( const u8 l ) { return Color( l, l, l, 255 ); }
+inline Color color_make_bw( const float brightness )
 {
 	const u8 intensity = static_cast<u8>( 255.0f * brightness );
 	return Color( intensity, intensity, intensity, 255 );
 }
 
 
-static inline Color color_change_brightness( Color color, const float brightness )
+inline Color color_change_brightness( Color color, const float brightness )
 {
 	const u8 intensityR = static_cast<u8>( clamp( static_cast<float>( color.r ) * brightness, 0.0f, 255.0f ) );
 	const u8 intensityG = static_cast<u8>( clamp( static_cast<float>( color.g ) * brightness, 0.0f, 255.0f ) );
@@ -141,11 +196,11 @@ static inline Color color_change_brightness( Color color, const float brightness
 }
 
 
-static inline Color color_swap_alpha( const Color rgba, const u8 a = 0xFF ) { return Color( rgba.r, rgba.g, rgba.b, a ); }
-static inline void color_swap_alpha( Color &rgba, const u8 a = 0xFF ) { rgba.a = a; }
+inline Color color_swap_alpha( const Color rgba, const u8 a = 0xFF ) { return Color( rgba.r, rgba.g, rgba.b, a ); }
+inline void color_swap_alpha( Color &rgba, const u8 a = 0xFF ) { rgba.a = a; }
 
 
-static inline void color_mix_alpha( const Color &sourceColor, const Color targetColor, const float amount, Color &outColor )
+inline void color_mix_alpha( const Color &sourceColor, const Color targetColor, const float amount, Color &outColor )
 {
 	outColor.r = static_cast<u8>( sourceColor.r + ( targetColor.r - sourceColor.r ) * amount );
 	outColor.g = static_cast<u8>( sourceColor.g + ( targetColor.g - sourceColor.g ) * amount );
@@ -154,7 +209,7 @@ static inline void color_mix_alpha( const Color &sourceColor, const Color target
 }
 
 
-static inline Color color_mix( Color sourceColor, const Color targetColor, const float amount )
+inline Color color_mix( Color sourceColor, const Color targetColor, const float amount )
 {
 	sourceColor.r = static_cast<u8>( sourceColor.r + ( targetColor.r - sourceColor.r ) * amount );
 	sourceColor.g = static_cast<u8>( sourceColor.g + ( targetColor.g - sourceColor.g ) * amount );
@@ -163,7 +218,7 @@ static inline Color color_mix( Color sourceColor, const Color targetColor, const
 }
 
 
-static inline Color color_mix_alpha( Color sourceColor, const Color targetColor, const float amount )
+inline Color color_mix_alpha( Color sourceColor, const Color targetColor, const float amount )
 {
 	sourceColor.r = static_cast<u8>( sourceColor.r + ( targetColor.r - sourceColor.r ) * amount );
 	sourceColor.g = static_cast<u8>( sourceColor.g + ( targetColor.g - sourceColor.g ) * amount );
@@ -173,7 +228,7 @@ static inline Color color_mix_alpha( Color sourceColor, const Color targetColor,
 }
 
 
-static inline ColorHSV color_mix( ColorHSV sourceColor, const ColorHSV targetColor, const float amount )
+inline ColorHSV color_mix( ColorHSV sourceColor, const ColorHSV targetColor, const float amount )
 {
 	sourceColor.h = static_cast<u8>( sourceColor.h + ( targetColor.h - sourceColor.h ) * amount );
 	sourceColor.s = static_cast<u8>( sourceColor.s + ( targetColor.s - sourceColor.s ) * amount );
@@ -182,7 +237,7 @@ static inline ColorHSV color_mix( ColorHSV sourceColor, const ColorHSV targetCol
 }
 
 
-static inline ColorHSV color_mix_alpha( ColorHSV sourceColor, const ColorHSV targetColor, const float amount )
+inline ColorHSV color_mix_alpha( ColorHSV sourceColor, const ColorHSV targetColor, const float amount )
 {
 	sourceColor.h = static_cast<u8>( sourceColor.h + ( targetColor.h - sourceColor.h ) * amount );
 	sourceColor.s = static_cast<u8>( sourceColor.s + ( targetColor.s - sourceColor.s ) * amount );
@@ -192,7 +247,7 @@ static inline ColorHSV color_mix_alpha( ColorHSV sourceColor, const ColorHSV tar
 }
 
 
-static inline u32 color_pack_u32( Color color )
+inline u32 color_pack_u32( Color color )
 {
 	u32 packedColor = 0;
 	packedColor |= ( static_cast<u32>( color.r )       );
@@ -203,7 +258,7 @@ static inline u32 color_pack_u32( Color color )
 }
 
 
-static inline Color color_unpack_u32( const u32 packedColor )
+inline Color color_unpack_u32( const u32 packedColor )
 {
 	Color color;
 	color.r = static_cast<u8>( ( packedColor       ) & 0xFF );
@@ -214,7 +269,7 @@ static inline Color color_unpack_u32( const u32 packedColor )
 }
 
 
-static inline int color_pack_int( Color color )
+inline int color_pack_int( Color color )
 {
 	int packedColor = 0;
 	packedColor |= ( static_cast<int>( color.r )       );
@@ -225,7 +280,7 @@ static inline int color_pack_int( Color color )
 }
 
 
-static inline Color color_unpack_int( const int packedColor )
+inline Color color_unpack_int( const int packedColor )
 {
 	Color color;
 	color.r = static_cast<u8>( ( packedColor       ) & 0xFF );

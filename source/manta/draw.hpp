@@ -4,6 +4,27 @@
 
 #include <manta/assets.hpp>
 #include <manta/color.hpp>
+#include <manta/math.hpp>
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+enum_type( Align, u8 )
+{
+	Align_Left = 0,
+	Align_Top = 0,
+	Align_Center = 1,
+	Align_Middle = 1,
+	Align_Right = 2,
+	Align_Bottom = 2,
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+extern void draw_set_halign( const Align align );
+extern void draw_set_valign( const Align align );
+
+extern Align draw_get_halign();
+extern Align draw_get_valign();
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -59,10 +80,10 @@ void draw_quad_uv_color( const float x1, const float y1, const float x2, const f
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static inline u16 sprite_subimg_mod( const u32 sprite, const u16 subimg )
+inline u16 sprite_subimg_mod( const u32 sprite, const u16 subimg )
 {
-    Assert( sprite < assets::spritesCount );
-    return subimg % assets::sprites[sprite].count;
+	Assert( sprite < Assets::spritesCount );
+	return subimg % Assets::sprites[sprite].count;
 }
 
 void draw_sprite( const u32 sprite, const u16 index, float x, float y,
@@ -85,8 +106,8 @@ void draw_sprite_fast( const u32 sprite, const u16 index, float x, float y, cons
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern void draw_surface( const struct GfxSurface2D &surface, float x, float y, const float xscale = 1.0f, const float yscale = 1.0f,
-                          const Color color = c_white, const float depth = 0.0f );
+extern void draw_render_target_2d( const struct GfxRenderTarget2D &renderTarget, float x, float y, const float xscale = 1.0f, const float yscale = 1.0f,
+                                   const Color color = c_white, const float depth = 0.0f );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -117,19 +138,19 @@ void draw_line( const float x1, const float y1, const float x2, const float y2,
 extern void draw_circle_gradient( float x, float y, float radius, Color c1 = c_white, Color c2 = c_white,
                                   u32 resolution = 20, const float depth = 0.0f );
 
-static inline void draw_circle( float x, float y, float radius, Color color = c_white,
-                                u32 resolution = 20, float depth = 0.0f )
+inline void draw_circle( float x, float y, float radius, Color color = c_white,
+                         u32 resolution = 20, float depth = 0.0f )
 {
-    draw_circle_gradient( x, y, radius, color, color, resolution, depth );
+	draw_circle_gradient( x, y, radius, color, color, resolution, depth );
 }
 
 extern void draw_circle_outline_gradient( float x, float y, float radius, float thickness = 1.0f,
-                                 Color c1 = c_white,  Color c2 = c_white, u32 resolution = 20, float depth = 0.0f );
+                                          Color c1 = c_white,  Color c2 = c_white, u32 resolution = 20, float depth = 0.0f );
 
-static inline void draw_circle_outline( float x, float y, float radius, float thickness = 1.0f, Color color = c_white,
-                                        u32 resolution = 20, float depth = 0.0f )
+inline void draw_circle_outline( float x, float y, float radius, float thickness = 1.0f, Color color = c_white,
+                                 u32 resolution = 20, float depth = 0.0f )
 {
-    draw_circle_outline_gradient( x, y, radius, thickness, color, color, resolution, depth );
+	draw_circle_outline_gradient( x, y, radius, thickness, color, color, resolution, depth );
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,5 +158,7 @@ static inline void draw_circle_outline( float x, float y, float radius, float th
 extern void draw_text( const u16 font, const u16 size, const float x, const float y, Color color, const char *string );
 extern void draw_text_f( const u32 font, const u16 size, const float x, const float y, Color color, const char *format, ... );
 
-extern struct vec2i text_dimensions( const u16 font, const u16 size, const char *string );
-extern struct vec2i text_dimensions_f( const u32 font, const u16 size, const char *format, ... );
+extern i32v2 text_dimensions( const u16 font, const u16 size, const char *string );
+extern i32v2 text_dimensions_f( const u32 font, const u16 size, const char *format, ... );
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

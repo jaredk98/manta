@@ -112,10 +112,12 @@ u32 utf8_decode( u32 *state, u32 *code, char byte )
 
     u32 type = table[static_cast<u8>( byte )];
 
-    *code =
-        ( *state != UTF8_ACCEPT ) ?
-        ( byte  & 0x3F ) | ( *code << 6 ) :
-        ( 0xFF >> type ) & ( byte );
+
+    *code = ( *state != UTF8_ACCEPT ) ?
+            ( byte  & 0x3F ) | ( *code << 6 ) :
+            ( 0xFF >> type ) & ( byte );
 
     return *state = table[256 + *state + type];
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

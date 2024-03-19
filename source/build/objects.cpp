@@ -2,12 +2,13 @@
 
 #include <build/build.hpp>
 #include <build/fileio.hpp>
+#include <build/math.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static const char *s_BASE_OBJECT_DEFINITION =
+static const char *s_OBJECT_BASE_DEFINITION =
 R"(
-OBJECT( BASE_OBJECT )
+OBJECT( OBJECT_BASE )
 ABSTRACT( true )
 
 PUBLIC Object id;
@@ -327,11 +328,11 @@ void ObjectFile::parse_keywords_values( const String &buffer )
 			case KeywordID_PARENT:
 			{
 				nameParent = keyword_PARENTHESES_string( buffer, keyword );
-				if( nameParent.length() == 0 ) { nameParent = "BASE_OBJECT"; }
+				if( nameParent.length() == 0 ) { nameParent = "OBJECT_BASE"; }
 				ErrorIf( nameParent.length() == 0, "%s() must be a valid string!", g_KEYWORDS[KeywordID_PARENT] );
 				typeParent = nameParent;
 				typeParent.append( "_t" );
-				typeParentFull = "iobjects::";
+				typeParentFull = "iObjects::";
 				typeParentFull.append( typeParent );
 			}
 			break;
@@ -392,7 +393,7 @@ void ObjectFile::parse_keywords_values( const String &buffer )
 	ErrorIf( networked && version == -1, "Objects with %s() must also have a specified %s()", g_KEYWORDS[KeywordID_NETWORKED], g_KEYWORDS[KeywordID_VERSION] );
 
 	// If ABSTRACT, do not allow parent
-	//AssertMsg( !( abstract && ( nameParent != "BASE_OBJECT" || nameParent != "" ) ), "ERROR: ABSTRACT objects cannot have a PARENT" );
+	//AssertMsg( !( abstract && ( nameParent != "OBJECT_BASE" || nameParent != "" ) ), "ERROR: ABSTRACT objects cannot have a PARENT" );
 }
 
 
@@ -440,7 +441,7 @@ void ObjectFile::parse_keywords_code( const String &buffer )
 
 void ObjectFile::keyword_INCLUDES( const String &buffer, Keyword &keyword )
 {
-	String &includes = keyword.id == KeywordID_HEADER_INCLUDES ? objects::headerIncludes : objects::sourceIncludes;
+	String &includes = keyword.id == KeywordID_HEADER_INCLUDES ? Objects::headerIncludes : Objects::sourceIncludes;
 
 	usize start = buffer.find( "#i", keyword.start, keyword.end );
 	while( start != USIZE_MAX )
@@ -476,7 +477,7 @@ void ObjectFile::keyword_CONSTRUCTOR( const String &buffer, Keyword &keyword )
 
 	// Source
 	String source;
-	source.append( "iobjects::" ).append( type ).append( "::" ).append( type ).append( "( " ).append( arguments ).append( " )\n" );
+	source.append( "iObjects::" ).append( type ).append( "::" ).append( type ).append( "( " ).append( arguments ).append( " )\n" );
 	source.append( scope ).append( "\n" );
 	constructorSource.add( static_cast<String &&>( source ) );
 
@@ -515,7 +516,7 @@ void ObjectFile::keyword_EVENT( const String &buffer, Keyword &keyword )
 	// Source
 	String eventSource;
 	eventSource.append( g_EVENT_FUNCTIONS[eventID][EventFunction_ReturnType] );
-	eventSource.append( " iobjects::" );
+	eventSource.append( " iObjects::" );
 	eventSource.append( type );
 	eventSource.append( "::" );
 	eventSource.append( g_EVENT_FUNCTIONS[eventID][EventFunction_Name] );
@@ -602,7 +603,7 @@ void ObjectFile::keyword_PRIVATE_PUBLIC_GLOBAL( const String &buffer, Keyword &k
 			}
 			functionSource.insert( current, "::" );
 			functionSource.insert( current, type );
-			functionSource.insert( current, "iobjects::" );
+			functionSource.insert( current, "iObjects::" );
 
 			// Format header function (e.g. header.hpp: "int foo();")
 			functionHeader.append( ";" );
@@ -784,16 +785,34 @@ bool ObjectFile::keyword_PARENTHESES_bool( const String &buffer, Keyword &keywor
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/*
+void ObjectFile::ErrorIf( const bool condition, const char *message, ... )
+{
+	if( !condition ) { return; }
+
+	char buffer[4096];
+	strjoin( buffer, "Error: ", path.c_str(), "\n\t > ", message, "\n" );
+
+	va_list args;
+	va_start( args, message );
+	strappend( buffer, args );
+	va_end( args );
+
+	PrintLnColor( LOG_RED, buffer );
+	exit( 1 );
+}
+*/
+
 void ObjectFile::parse()
 {
 	// Buffer
 	String buffer;
 
-	// Skip BASE_OBJECT
-	if( name == "BASE_OBJECT" )
+	// Skip OBJECT_BASE
+	if( name == "OBJECT_BASE" )
 	{
-		// Read from s_BASE_OBJECT_DEFINITION
-		buffer = s_BASE_OBJECT_DEFINITION;
+		// Read from s_OBJECT_BASE_DEFINITION
+		buffer = s_OBJECT_BASE_DEFINITION;
 	}
 	else
 	{
@@ -802,7 +821,7 @@ void ObjectFile::parse()
 	}
 
 	// Console
-	if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tParse %s", path.length() == 0 ? "BASE_OBJECT" : path.c_str() ); }
+	if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Parse %s", path.length() == 0 ? "OBJECT_BASE" : path.c_str() ); }
 	Timer timer;
 	{
 		// Parse Keywords
@@ -821,7 +840,7 @@ void ObjectFile::parse()
 void ObjectFile::write_header()
 {
 	// Header
-	String &output = objects::header;
+	String &output = Objects::header;
 
 	// Header Break
 	output.append( "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n\n" );
@@ -898,11 +917,7 @@ void ObjectFile::write_header()
 				output.append( "\t// PRIVATE DATA\n" );
 				for( String &str : privateVariableHeader )
 				{
-					// Only write members that are unique to this object (factor inheritance of members)
-					if( parent == nullptr || !( parent->inheritedVariables.contains( str ) ) )
-					{
-						output.append( "\t" ).append( str ).append( "\n" );
-					}
+					output.append( "\t" ).append( str ).append( "\n" );
 				}
 				output.append( "\n" );
 			}
@@ -929,18 +944,18 @@ void ObjectFile::write_header()
 	// Object Constructor
 	if( constructorHeader.size() > 0 )
 	{
-		output.append( "template <typename... Args> struct iobjects::object_constructor<" ).append( name ).append( ", Args...>\n{\n" );
+		output.append( "template <typename... Args> struct iObjects::object_constructor<" ).append( name ).append( ", Args...>\n{\n" );
 		output.append( "\tstatic void construct( Args... args )\n\t{\n" );
-		output.append( "\t\tnew ( iobjects::OBJECT_CTOR_MANUAL_BUFFER + iobjects::OBJECT_CTOR_BUFFER_OFFSET[" );
-		output.append( name ).append( "] ) iobjects::" ).append( type ).append( "( args... );\n\t}\n};\n\n" );
+		output.append( "\t\tnew ( iObjects::OBJECT_CTOR_MANUAL_BUFFER + iObjects::OBJECT_CTOR_BUFFER_OFFSET[" );
+		output.append( name ).append( "] ) iObjects::" ).append( type ).append( "( args... );\n\t}\n};\n\n" );
 	}
 
 	// ObjectHandle
 	output.append( "template <> struct ObjectHandle<" ).append( name ).append( ">\n{\n" );
-	output.append( "\tiobjects::" ).append( type ).append( " *data = nullptr;\n" );
-	output.append( "\tiobjects::" ).append( type ).append( " *operator->() const { Assert( data != nullptr ); return data; }\n" );
+	output.append( "\tiObjects::" ).append( type ).append( " *data = nullptr;\n" );
+	output.append( "\tiObjects::" ).append( type ).append( " *operator->() const { Assert( data != nullptr ); return data; }\n" );
 	output.append( "\texplicit operator bool() const { return data != nullptr; }\n" );
-	output.append( "\tObjectHandle( void *object ) { data = reinterpret_cast<iobjects::" ).append( type ).append( " *>( object ); }\n" );
+	output.append( "\tObjectHandle( void *object ) { data = reinterpret_cast<iObjects::" ).append( type ).append( " *>( object ); }\n" );
 	output.append( "};\n\n" );
 
 	// Global Functions
@@ -955,7 +970,7 @@ void ObjectFile::write_header()
 
 void ObjectFile::write_handle()
 {
-	String &output = objects::source;
+	String &output = Objects::source;
 	output.append( "template <> ObjectHandle<" ).append( name ).append( "> Object::handle<" ).append( name );
 	output.append( ">( const ObjectContext &context ) const\n{\n" );
 	output.append( "\treturn { context.object_pointer( *this ) };\n}\n\n" );
@@ -965,8 +980,8 @@ void ObjectFile::write_handle()
 void ObjectFile::write_source()
 {
 	// Header
-	String &output = objects::source;
-	bool hasParent = ( nameParent != "BASE_OBJECT" );
+	String &output = Objects::source;
+	bool hasParent = ( nameParent != "OBJECT_BASE" );
 
 	// Header Break
 	output.append( "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n\n" );
@@ -1007,7 +1022,26 @@ void ObjectFile::write_source()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace objects
+/*
+void Objects::ErrorIf( const bool condition, const char *message, ... )
+{
+	if( !condition ) { return; }
+
+	char buffer[4096];
+	strjoin( buffer, "Error: Objects\n\t > ", message, "\n" );
+
+	va_list args;
+	va_start( args, message );
+	strappend( buffer, args );
+	va_end( args );
+
+	PrintLnColor( LOG_RED, buffer );
+	exit( 1 );
+}
+*/
+
+
+namespace Objects
 {
 	// Output Paths
 	char pathSource[PATH_SIZE];
@@ -1029,33 +1063,33 @@ namespace objects
 }
 
 
-void objects::begin()
+void Objects::begin()
 {
-	// BASE_OBJECT
+	// OBJECT_BASE
 	ObjectFile object { "" };
-	object.name = "BASE_OBJECT"; // Initialize system with BASE_OBJECT
+	object.name = "OBJECT_BASE"; // Initialize system with OBJECT_BASE
 	object.nameParent = "";
 	objectFiles.add( object );
 
 	// Output Paths
-	strjoin( pathIntelliSense, build::pathOutput, SLASH "generated" SLASH "objects.generated.intellisense" );
-	strjoin( pathHeader, build::pathOutput, SLASH "generated" SLASH "objects.generated.hpp" );
-	strjoin( pathSource, build::pathOutput, SLASH "generated" SLASH "objects.generated.cpp" );
+	strjoin( pathIntelliSense, Build::pathOutput, SLASH "generated" SLASH "objects.generated.intellisense" );
+	strjoin( pathHeader, Build::pathOutput, SLASH "generated" SLASH "objects.generated.hpp" );
+	strjoin( pathSource, Build::pathOutput, SLASH "generated" SLASH "objects.generated.cpp" );
 
 	// Cache
 	FileTime timeIntelliSense;
-	if( !file_time( pathIntelliSense, &timeIntelliSense ) ) { build::cacheDirtyObjects = true; return; }
+	if( !file_time( pathIntelliSense, &timeIntelliSense ) ) { Build::cacheDirtyObjects = true; return; }
 	FileTime timeHeader;
-	if( !file_time( pathHeader, &timeHeader ) ) { build::cacheDirtyObjects = true; return; }
+	if( !file_time( pathHeader, &timeHeader ) ) { Build::cacheDirtyObjects = true; return; }
 	FileTime timeSource;
-	if( !file_time( pathSource, &timeSource ) ) { build::cacheDirtyObjects = true; return; }
+	if( !file_time( pathSource, &timeSource ) ) { Build::cacheDirtyObjects = true; return; }
 
 	timeCache = file_time_newer( timeIntelliSense, timeHeader ) ? timeIntelliSense : timeHeader;
 	timeCache = file_time_newer( timeCache, timeSource ) ? timeCache : timeSource;
 }
 
 
-u32 objects::gather( const char *directory, const bool recurse )
+u32 Objects::gather( const char *directory, const bool recurse )
 {
 	// Iterate Directories
 	Timer timer;
@@ -1066,11 +1100,11 @@ u32 objects::gather( const char *directory, const bool recurse )
 	for( FileInfo &objectFile : objectFilesDisk )
 	{
 		// Check Cache
-		if( !build::cacheDirtyObjects )
+		if( !Build::cacheDirtyObjects )
 		{
 			FileTime timeObject;
 			file_time( objectFile.path, &timeObject );
-			build::cacheDirtyObjects |= file_time_newer( timeObject, timeCache );
+			Build::cacheDirtyObjects |= file_time_newer( timeObject, timeCache );
 		}
 
 		// Add Object
@@ -1081,23 +1115,23 @@ u32 objects::gather( const char *directory, const bool recurse )
 	const u32 objectCount = objectFilesDisk.size();
 	if( verbose_output() )
 	{
-		PrintColor( LOG_CYAN, "\t\t%u object%s found in: %s", objectCount, objectCount == 1 ? "" : "s", directory );
+		PrintColor( LOG_CYAN, TAB TAB "%u object%s found in: %s", objectCount, objectCount == 1 ? "" : "s", directory );
 		PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() );
 	}
 	return objectCount;
 }
 
 
-void objects::parse()
+void Objects::parse()
 {
 	// Parse Objects
 	for( ObjectFile &object : objectFiles ) { object.parse(); }
 }
 
 
-void objects::resolve()
+void Objects::resolve()
 {
-	if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tResolve Inheritance" ); }
+	if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Resolve Inheritance" ); }
 	Timer timer;
 
 	// Resolve object dependencies (build inheritance N-tree)
@@ -1130,7 +1164,7 @@ void objects::resolve()
 	}
 
 	// Sort objects based on inheritance depth
-	objectFilesSorted.add( &objectFiles[0] ); // BASE_OBJECT
+	objectFilesSorted.add( &objectFiles[0] ); // OBJECT_BASE
 	objectFiles[0].depth = 0;
 	objectFiles[0].visited = true;
 	sort_objects( &objectFiles[0], 1, objectFilesSorted );
@@ -1178,7 +1212,7 @@ void objects::resolve()
 };
 
 
-void objects::sort_objects( ObjectFile *object, const u16 depth, List<ObjectFile *> &outList )
+void Objects::sort_objects( ObjectFile *object, const u16 depth, List<ObjectFile *> &outList )
 {
 	// This performs a "topological sort" of the ObjectFiles based on the inheritance tree
 	// The output ensures that parents always precede children
@@ -1214,32 +1248,32 @@ void objects::sort_objects( ObjectFile *object, const u16 depth, List<ObjectFile
 }
 
 
-void objects::generate()
+void Objects::generate()
 {
 	// Generates C++ source & header contents including:
 	//     - Class definitions and member function implementations for each object type
 	//     - Boilerplate datastructures & functions necessary for the object system (manta/objects.hpp)
 
 	// IntelliSense
-	generate_intellisense( objects::intellisense );
+	generate_intellisense( Objects::intellisense );
 
 	// Header
-	generate_header( objects::header );
+	generate_header( Objects::header );
 
 	// Source
-	generate_source( objects::source );
+	generate_source( Objects::source );
 }
 
 
-void objects::generate_intellisense( String &output )
+void Objects::generate_intellisense( String &output )
 {
-	if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tGenerate output/generated/objects.generated.intellisense" ); }
+	if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Generate output/generated/objects.generated.intellisense" ); }
 	Timer timer;
 
 	// File Info
 	output.append( "/*\n" );
 	output.append( " * File generated by build.exe--do not edit!\n" );
-	output.append( " * Refer to: source/build/objects.cpp (objects::GenerateIntelliSense)\n" );
+	output.append( " * Refer to: source/build/objects.cpp (Objects::GenerateIntelliSense)\n" );
 	output.append( " *\n" );
 	output.append( " * This header should only be included in manta/source/objects_api.hpp\n" );
 	output.append( " * The purpose of this file is to provide IntelliSense and syntax highlighting for inherited objects\n" );
@@ -1254,7 +1288,7 @@ void objects::generate_intellisense( String &output )
 	for( ObjectFile *object : objectFilesSorted )
 	{
 		output.append( "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n\n" );
-		output.append( "namespace iobjects::ObjectIntelliSense_" ).append( object->name ).append( "\n{\n" );
+		output.append( "namespace iObjects::ObjectIntelliSense_" ).append( object->name ).append( "\n{\n" );
 
 		// Inherited Variables
 		for( String &variable : object->inheritedVariables )
@@ -1281,16 +1315,16 @@ void objects::generate_intellisense( String &output )
 }
 
 
-void objects::generate_header( String &output )
+void Objects::generate_header( String &output )
 {
 	// Log
-	if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tGenerate output/generated/objects.generated.hpp" ); }
+	if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Generate output/generated/objects.generated.hpp" ); }
 	Timer timer;
 
 	// File Info
 	output.append( "/*\n" );
 	output.append( " * File generated by build.exe--do not edit!\n" );
-	output.append( " * Refer to: source/build/objects.cpp (objects::GenerateHeader)\n" );
+	output.append( " * Refer to: source/build/objects.cpp (Objects::GenerateHeader)\n" );
 	output.append( " *\n" );
 	output.append( " * This header should only be included in source/manta/objects.hpp\n" );
 	output.append( " */\n" );
@@ -1307,8 +1341,8 @@ void objects::generate_header( String &output )
 
 	// HEADER_INCLUDES
 	output.append( "// HEADER_INCLUDES\n" );
-	output.append( objects::headerIncludes );
-	output.append( objects::headerIncludes.length() == 0 ? "// ...\n\n" : "\n\n" );
+	output.append( Objects::headerIncludes );
+	output.append( Objects::headerIncludes.length() == 0 ? "// ...\n\n" : "\n\n" );
 
 	// Object System Internals
 	generate_header_metadata( output );
@@ -1333,10 +1367,10 @@ void objects::generate_header( String &output )
 }
 
 
-void objects::generate_header_metadata( String &output )
+void Objects::generate_header_metadata( String &output )
 {
 	output.append( "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n\n" );
-	output.append( "namespace iobjects\n{\n" );
+	output.append( "namespace iObjects\n{\n" );
 	{
 		output.append( "\textern byte *OBJECT_CTOR_MANUAL_BUFFER;\n" );
 		output.append( "\textern byte *OBJECT_CTOR_DEFAULT_BUFFER;\n" );
@@ -1354,21 +1388,22 @@ void objects::generate_header_metadata( String &output )
 		output.append( "\ttemplate <int N, typename... Args> struct object_constructor;\n\n" );
 
 		output.append( "\textern bool init();\n" );
+		output.append( "\textern bool free();\n" );
 	}
 	output.append( "}\n\n" );
 }
 
 
-void objects::generate_source( String &output )
+void Objects::generate_source( String &output )
 {
 	// Log
-	if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tGenerate output/generated/objects.generated.cpp" ); }
+	if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Generate output/generated/objects.generated.cpp" ); }
 	Timer timer;
 
 	// File Info
 	output.append( "/*\n" );
 	output.append( " * File generated by build.exe--do not edit!\n" );
-	output.append( " * Refer to: source/build/objects.cpp (objects::GenerateSource)\n" );
+	output.append( " * Refer to: source/build/objects.cpp (Objects::GenerateSource)\n" );
 	output.append( " *\n" );
 	output.append( " * Provides implementations for source/manta/objects.hpp internals and output/generated/objects.generated.hpp\n" );
 	output.append( " */\n\n" );
@@ -1382,8 +1417,8 @@ void objects::generate_source( String &output )
 
 	// SOURCE_INCLUDES
 	output.append( "// SOURCE_INCLUDES\n" );
-	output.append( objects::sourceIncludes );
-	output.append( objects::sourceIncludes.length() == 0 ? "// ...\n\n" : "\n\n" );
+	output.append( Objects::sourceIncludes );
+	output.append( Objects::sourceIncludes.length() == 0 ? "// ...\n\n" : "\n\n" );
 
 	// Safety Defines (INHERIT)
 	output.append( "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n\n" );
@@ -1407,17 +1442,17 @@ void objects::generate_source( String &output )
 };
 
 
-void objects::generate_source_metadata( String &output )
+void Objects::generate_source_metadata( String &output )
 {
 	output.append( "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n\n" );
 
-	output.append( "byte *iobjects::OBJECT_CTOR_MANUAL_BUFFER = nullptr;\n" );
-	output.append( "byte *iobjects::OBJECT_CTOR_DEFAULT_BUFFER = nullptr;\n" );
-	output.append( "u32 iobjects::OBJECT_CTOR_BUFFER_SIZE = 0;\n" );
-	output.append( "u32 iobjects::OBJECT_CTOR_BUFFER_OFFSET[OBJECT_TYPE_COUNT];\n\n" );
+	output.append( "byte *iObjects::OBJECT_CTOR_MANUAL_BUFFER = nullptr;\n" );
+	output.append( "byte *iObjects::OBJECT_CTOR_DEFAULT_BUFFER = nullptr;\n" );
+	output.append( "u32 iObjects::OBJECT_CTOR_BUFFER_SIZE = 0;\n" );
+	output.append( "u32 iObjects::OBJECT_CTOR_BUFFER_OFFSET[OBJECT_TYPE_COUNT];\n\n" );
 
 	// OBJECT_BUCKET_CAPACITY
-	output.append( "const u16 iobjects::OBJECT_TYPE_BUCKET_CAPACITY[OBJECT_TYPE_COUNT] =\n{\n\t" );
+	output.append( "const u16 iObjects::OBJECT_TYPE_BUCKET_CAPACITY[OBJECT_TYPE_COUNT] =\n{\n\t" );
 	for( usize i = 0, j = 0; i < objectFilesSorted.size(); i++, j++ )
 	{
 		ObjectFile &object = *objectFilesSorted[i];
@@ -1427,7 +1462,7 @@ void objects::generate_source_metadata( String &output )
 	output.append( "\n};\n\n" );
 
 	// OBJECT_TYPE_MAX_COUNT
-	output.append( "const i32 iobjects::OBJECT_TYPE_MAX_COUNT[OBJECT_TYPE_COUNT] =\n{\n\t" );
+	output.append( "const i32 iObjects::OBJECT_TYPE_MAX_COUNT[OBJECT_TYPE_COUNT] =\n{\n\t" );
 	for( usize i = 0, j = 0; i < objectFilesSorted.size(); i++, j++ )
 	{
 		ObjectFile &object = *objectFilesSorted[i];
@@ -1437,7 +1472,7 @@ void objects::generate_source_metadata( String &output )
 	output.append( "\n};\n\n" );
 
 	// OBJECT_TYPE_INHERITANCE_DEPTH
-	output.append( "const u16 iobjects::OBJECT_TYPE_INHERITANCE_DEPTH[OBJECT_TYPE_COUNT] =\n{\n\t" );
+	output.append( "const u16 iObjects::OBJECT_TYPE_INHERITANCE_DEPTH[OBJECT_TYPE_COUNT] =\n{\n\t" );
 	for( usize i = 0, j = 0; i < objectFilesSorted.size(); i++, j++ )
 	{
 		ObjectFile &object = *objectFilesSorted[i];
@@ -1449,11 +1484,11 @@ void objects::generate_source_metadata( String &output )
 	output.append( "\n};\n\n" );
 
 	// OBJECT_TYPE_SIZE
-	output.append( "const u16 iobjects::OBJECT_TYPE_SIZE[OBJECT_TYPE_COUNT] =\n{\n\t" );
+	output.append( "const u16 iObjects::OBJECT_TYPE_SIZE[OBJECT_TYPE_COUNT] =\n{\n\t" );
 	for( usize i = 0, j = 0; i < objectFilesSorted.size(); i++, j++ )
 	{
 		ObjectFile &object = *objectFilesSorted[i];
-		output.append( "sizeof( iobjects::" );
+		output.append( "sizeof( iObjects::" );
 		output.append( object.type );
 		output.append( ( j % 3 == 0 && j != 0 && i != objectFilesSorted.size() - 1 ) ? " ),\n\t" : " ), " );
 	}
@@ -1461,7 +1496,7 @@ void objects::generate_source_metadata( String &output )
 
 	// OBJECT_TYPE_NAME
 	output.append( "#if COMPILE_DEBUG\n" );
-	output.append( "const char *iobjects::OBJECT_TYPE_NAME[OBJECT_TYPE_COUNT] =\n{\n\t" );
+	output.append( "const char *iObjects::OBJECT_TYPE_NAME[OBJECT_TYPE_COUNT] =\n{\n\t" );
 	for( usize i = 0, j = 0; i < objectFilesSorted.size(); i++, j++ )
 	{
 		ObjectFile &object = *objectFilesSorted[i];
@@ -1473,15 +1508,15 @@ void objects::generate_source_metadata( String &output )
 
 	// #define OBJECT_CONSTRUCTOR_OFFSET
 	output.append( "#define OBJECT_CONSTRUCTOR_OFFSET( typeID ) \\\n" );
-	output.append( "\tiobjects::OBJECT_CTOR_BUFFER_OFFSET[typeID] = iobjects::OBJECT_CTOR_BUFFER_SIZE; \\\n" );
-	output.append( "\tiobjects::OBJECT_CTOR_BUFFER_SIZE += iobjects::OBJECT_TYPE_SIZE[typeID];\n\n" );
+	output.append( "\tiObjects::OBJECT_CTOR_BUFFER_OFFSET[typeID] = iObjects::OBJECT_CTOR_BUFFER_SIZE; \\\n" );
+	output.append( "\tiObjects::OBJECT_CTOR_BUFFER_SIZE += iObjects::OBJECT_TYPE_SIZE[typeID];\n\n" );
 
 	// #define OBJECT_CONSTRUCTOR_OFFSET
 	output.append( "#define OBJECT_CONSTRUCTOR_DATA( typeID, type ) \\\n" );
-	output.append( "\t{ new ( iobjects::OBJECT_CTOR_DEFAULT_BUFFER + iobjects::OBJECT_CTOR_BUFFER_OFFSET[typeID] ) type(); }\n\n" );
+	output.append( "\t{ new ( iObjects::OBJECT_CTOR_DEFAULT_BUFFER + iObjects::OBJECT_CTOR_BUFFER_OFFSET[typeID] ) type(); }\n\n" );
 
-	// void init()
-	output.append( "bool iobjects::init()\n{\n" );
+	// bool init()
+	output.append( "bool iObjects::init()\n{\n" );
 	{
 		for( ObjectFile *object : objectFilesSorted )
 		{
@@ -1491,17 +1526,17 @@ void objects::generate_source_metadata( String &output )
 		}
 		output.append( "\t// ...\n\n" );
 
-		output.append( "\tiobjects::OBJECT_CTOR_MANUAL_BUFFER = reinterpret_cast<byte *>( memory_alloc( iobjects::OBJECT_CTOR_BUFFER_SIZE ) );\n" );
-		output.append( "\tif( iobjects::OBJECT_CTOR_MANUAL_BUFFER == nullptr ) { return false; }\n\n" );
+		output.append( "\tiObjects::OBJECT_CTOR_MANUAL_BUFFER = reinterpret_cast<byte *>( memory_alloc( iObjects::OBJECT_CTOR_BUFFER_SIZE ) );\n" );
+		output.append( "\tif( iObjects::OBJECT_CTOR_MANUAL_BUFFER == nullptr ) { return false; }\n\n" );
 
-		output.append( "\tiobjects::OBJECT_CTOR_DEFAULT_BUFFER = reinterpret_cast<byte *>( memory_alloc( iobjects::OBJECT_CTOR_BUFFER_SIZE ) );\n" );
-		output.append( "\tif( iobjects::OBJECT_CTOR_DEFAULT_BUFFER == nullptr ) { return false; }\n\n" );
+		output.append( "\tiObjects::OBJECT_CTOR_DEFAULT_BUFFER = reinterpret_cast<byte *>( memory_alloc( iObjects::OBJECT_CTOR_BUFFER_SIZE ) );\n" );
+		output.append( "\tif( iObjects::OBJECT_CTOR_DEFAULT_BUFFER == nullptr ) { return false; }\n\n" );
 
 		for( ObjectFile *object : objectFilesSorted )
 		{
 			output.append( "\tOBJECT_CONSTRUCTOR_DATA( " );
 			output.append( object->name );
-			output.append( ", iobjects::" );
+			output.append( ", iObjects::" );
 			output.append( object->type );
 			output.append( " );\n" );
 		}
@@ -1510,10 +1545,25 @@ void objects::generate_source_metadata( String &output )
 		output.append( "\treturn true;\n" );
 	}
 	output.append( "}\n\n" );
+
+	// bool free()
+	output.append( "bool iObjects::free()\n{\n" );
+	{
+		output.append( "\tif( iObjects::OBJECT_CTOR_MANUAL_BUFFER != nullptr )\n\t{\n" );
+		output.append( "\t\tmemory_free( iObjects::OBJECT_CTOR_MANUAL_BUFFER );\n" );
+		output.append( "\t\tiObjects::OBJECT_CTOR_MANUAL_BUFFER = nullptr;\n\t}\n\n" );
+
+		output.append( "\tif( iObjects::OBJECT_CTOR_DEFAULT_BUFFER != nullptr )\n\t{\n" );
+		output.append( "\t\tmemory_free( iObjects::OBJECT_CTOR_DEFAULT_BUFFER );\n" );
+		output.append( "\t\tiObjects::OBJECT_CTOR_DEFAULT_BUFFER = nullptr;\n\t}\n\n" );
+
+		output.append( "\treturn true;\n" );
+	}
+	output.append( "}\n\n" );
 }
 
 
-void objects::generate_source_events( String &output )
+void Objects::generate_source_events( String &output )
 {
 	output.append( "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////\n\n" );
 
@@ -1540,29 +1590,29 @@ void objects::generate_source_events( String &output )
 }
 
 
-void objects::write()
+void Objects::write()
 {
 	// Write IntelliSense
 	{
-		if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tWrite %s", pathIntelliSense ); }
+		if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Write %s", pathIntelliSense ); }
 		Timer timer;
-		ErrorIf( !objects::intellisense.save( pathIntelliSense ), "Failed to write '%s'", pathIntelliSense );
+		ErrorIf( !Objects::intellisense.save( pathIntelliSense ), "Failed to write '%s'", pathIntelliSense );
 		if( verbose_output() ) { PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() ); }
 	}
 
 	// Write Header
 	{
-		if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tWrite %s", pathHeader ); }
+		if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Write %s", pathHeader ); }
 		Timer timer;
-		ErrorIf( !objects::header.save( pathHeader ), "Failed to write '%s'", pathHeader );
+		ErrorIf( !Objects::header.save( pathHeader ), "Failed to write '%s'", pathHeader );
 		if( verbose_output() ) { PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() ); }
 	}
 
 	// Write Source
 	{
-		if( verbose_output() ) { PrintColor( LOG_CYAN, "\t\tWrite %s", pathSource ); }
+		if( verbose_output() ) { PrintColor( LOG_CYAN, TAB TAB "Write %s", pathSource ); }
 		Timer timer;
-		ErrorIf( !objects::source.save( pathSource ), "Failed to write '%s'", pathSource );
+		ErrorIf( !Objects::source.save( pathSource ), "Failed to write '%s'", pathSource );
 		if( verbose_output() ) { PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() ); }
 	}
 }

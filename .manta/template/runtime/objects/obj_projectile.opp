@@ -40,9 +40,9 @@ EVENT_STEP
 	y += lengthdir_y( speed * delta, direction );
 
 	// Destroy
-	if( x < 0.0f || x > static_cast<float>( window::width ) || y < 0.0f || y > static_cast<float>( window::height ) )
+	if( x < 0.0f || x > static_cast<float>( Window::width ) || y < 0.0f || y > static_cast<float>( Window::height ) )
 	{
-		sceneObjects.destroy( id );
+		Scene::objects.destroy( id );
 		return;
 	}
 }

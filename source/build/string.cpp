@@ -8,7 +8,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void istring::_strjoin( const usize bufferSize, char *buffer, ... )
+void iString::_strjoin( const usize bufferSize, char *buffer, ... )
 {
 	if( buffer == nullptr || bufferSize == 0 ) { return; }
 
@@ -36,7 +36,7 @@ void istring::_strjoin( const usize bufferSize, char *buffer, ... )
 }
 
 
-void istring::_strjoin_filepath( const usize bufferSize, char *buffer, ... )
+void iString::_strjoin_filepath( const usize bufferSize, char *buffer, ... )
 {
 	if( buffer == nullptr || bufferSize == 0 ) { return; }
 	const usize slashLength = strlen( SLASH );
@@ -71,7 +71,7 @@ void istring::_strjoin_filepath( const usize bufferSize, char *buffer, ... )
 }
 
 
-void istring::_strappend( const usize bufferSize, char *buffer, const char *string )
+void iString::_strappend( const usize bufferSize, char *buffer, const char *string )
 {
 	if( buffer == nullptr || string == nullptr || bufferSize == 0 ) { return; }
 
@@ -82,6 +82,16 @@ void istring::_strappend( const usize bufferSize, char *buffer, const char *stri
 	if( bufferLength + stringLength < bufferSize ) { strncat( buffer, string, bufferSize - bufferLength - 1 ); }
 
 	buffer[bufferSize - 1] = '\0';
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+char *StringView::c_str( char *buffer, usize size )
+{
+	Assert( size > length );
+	memory_copy( buffer, data, length );
+	buffer[length] = '\0';
+	return buffer;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -243,6 +253,19 @@ String & String::append( const char *str )
 }
 
 
+String & String::append( const StringView &view )
+{
+	// Grow data (if necessary)
+	while( capacity < current + view.length ) { grow(); }
+
+	// Append string
+	memory_copy( data + current, view.data, view.length );
+	current += view.length;
+	data[current] = '\0';
+	return *this;
+}
+
+
 String & String::append( char c )
 {
 	// Grow data (if necessary)
@@ -255,15 +278,23 @@ String & String::append( char c )
 }
 
 
-String & String::append( int number )
+String & String::append( int integer )
 {
 	char buffer[32];
-	snprintf( buffer, 32, "%d", number );
+	snprintf( buffer, 32, "%d", integer );
 	return this->append( buffer );
 }
 
 
-String & String::append( float number )
+String & String::append( u64 integer )
+{
+	char buffer[32];
+	snprintf( buffer, 32, "%llu", integer );
+	return this->append( buffer );
+}
+
+
+String & String::append( double number )
 {
 	char buffer[32];
 	snprintf( buffer, 32, "%f", number );
@@ -369,7 +400,7 @@ String & String::trim( const bool trimTabs )
 usize String::find( const char *substr, usize start, usize end ) const
 {
 	// Range validation
-	Assert( start <= current );
+	if( start >= current ) { return USIZE_MAX; }
 	if( end == USIZE_MAX ) { end = current; }
 	Assert( end <= current );
 	Assert( end >= start );
@@ -431,8 +462,8 @@ String & String::replace( const char *substr, const char *str, usize start, usiz
 	Assert( end <= current );
 	Assert( end >= start );
 
-	// Check for empty substring or string to replace with
-	if( substr == nullptr || substr[0] == '\0' || str == nullptr ) { return *this; }
+	// Empty strings?
+	if( substr == nullptr || substr[0] == '\0' || str == nullptr) { return *this; }
 
 	const usize lenSubstr = strlen( substr );
 	const usize lenStr = strlen( str );
@@ -446,7 +477,7 @@ String & String::replace( const char *substr, const char *str, usize start, usiz
 		insert( index, str );
 
 		// Find next
-		start = index + lenSubstr;
+		start = index + lenStr;
 		end += lenDiff;
 		index = find( substr, start, end );
 	}

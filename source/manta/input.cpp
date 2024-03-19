@@ -1,14 +1,17 @@
 #include <manta/input.hpp>
+
+#include <manta/window.hpp>
+
 #include <debug.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-ikeyboard::Keyboard ikeyboard::keyboards[keyboardCount];
-u8 ikeyboard::primary = 0;
+iKeyboard::KeyboardListener iKeyboard::keyboards[keyboardCount];
+u8 iKeyboard::primary = 0;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void ikeyboard::Keyboard::update( const Delta delta )
+void iKeyboard::KeyboardListener::update( const Delta delta )
 {
 	// Key State
 	for( int key = 0; key < 256; key++ )
@@ -41,7 +44,7 @@ void ikeyboard::Keyboard::update( const Delta delta )
 }
 
 
-void ikeyboard::Keyboard::clear()
+void iKeyboard::KeyboardListener::clear()
 {
 	for( u16 key = 0; key < 256; key++ )
 	{
@@ -54,12 +57,18 @@ void ikeyboard::Keyboard::clear()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-imouse::Mouse imouse::mice[8];
-u8 imouse::primary = 0;
+iMouse::MouseListener iMouse::mice[8];
+u8 iMouse::primary = 0;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void imouse::Mouse::update( const Delta delta )
+namespace Mouse
+{
+	void set_position( const int x, const int y ) { iWindow::mouse_set_position( x, y ); }
+}
+
+
+void iMouse::MouseListener::update( const Delta delta )
 {
 	buttonPrevious = buttonCurrent;
 
@@ -70,7 +79,7 @@ void imouse::Mouse::update( const Delta delta )
 }
 
 
-void imouse::Mouse::clear()
+void iMouse::MouseListener::clear()
 {
 	buttonPrevious = 0;
 	buttonCurrent = 0;

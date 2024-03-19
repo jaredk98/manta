@@ -35,7 +35,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static inline void path_change_extension( char *buffer, const usize bufferSize, const char *path, const char *extension )
+inline void path_change_extension( char *buffer, const usize bufferSize, const char *path, const char *extension )
 {
 	// Invalid input parameters?
 	if( buffer == nullptr || path == nullptr || extension == nullptr || bufferSize == 0 )
@@ -85,13 +85,13 @@ static inline void path_change_extension( char *buffer, const usize bufferSize, 
 }
 
 
-static inline void swrite( const char *string, FILE *file )
+inline void swrite( const char *string, FILE *file )
 {
 	fwrite( string, strlen( string ), 1, file );
 }
 
 
-static inline usize fsize( FILE *file )
+inline usize fsize( FILE *file )
 {
 	fseek( file, 0, SEEK_END );
 	usize size = ftell( file );
@@ -156,7 +156,7 @@ struct FileList
 #if FILESYSTEM_WINDOWS
 
 
-static inline bool file_time( const char *path, FileTime *result )
+inline bool file_time( const char *path, FileTime *result )
 {
 	// Open File
 	HANDLE file;
@@ -177,7 +177,7 @@ static inline bool file_time( const char *path, FileTime *result )
 }
 
 
-static inline bool file_time_newer( const FileTime &a, const FileTime &b )
+inline bool file_time_newer( const FileTime &a, const FileTime &b )
 {
 	ULARGE_INTEGER integerA;
 	integerA.LowPart  = a.time.dwLowDateTime;
@@ -199,7 +199,7 @@ static bool file_delete( const char *path )
 }
 
 
-static inline void directory_create( const char *path )
+inline void directory_create( const char *path )
 {
 	CreateDirectoryA( path, nullptr );
 }
@@ -251,7 +251,7 @@ static bool directory_delete( const char *path, const bool recurse )
 }
 
 
-static inline bool directory_iterate( FileList &list, const char *path, const char *extension, const bool recurse )
+inline bool directory_iterate( FileList &list, const char *path, const char *extension, const bool recurse )
 {
 	WIN32_FIND_DATAA findData;
 	HANDLE findFile;
@@ -298,7 +298,7 @@ static inline bool directory_iterate( FileList &list, const char *path, const ch
 
 #include <vendor/posix.hpp>
 
-static inline bool file_time( const char *path, FileTime *result )
+inline bool file_time( const char *path, FileTime *result )
 {
 	struct stat file_stat;
 	int file = open( path, O_RDONLY);
@@ -315,7 +315,7 @@ static inline bool file_time( const char *path, FileTime *result )
 }
 
 
-static inline bool file_time_newer( const FileTime &a, const FileTime &b )
+inline bool file_time_newer( const FileTime &a, const FileTime &b )
 {
 	return a.time > b.time;
 }
@@ -329,7 +329,7 @@ static bool file_delete( const char *path )
 }
 
 
-static inline void directory_create( const char *path )
+inline void directory_create( const char *path )
 {
 	char dir[PATH_SIZE];
 	strjoin( dir, "." SLASH, path );
@@ -384,7 +384,7 @@ static bool directory_delete( const char *path, const bool recurse )
 }
 
 
-static inline bool directory_iterate( FileList &list, const char *path, const char *extension, const bool recurse )
+inline bool directory_iterate( FileList &list, const char *path, const char *extension, const bool recurse )
 {
 	struct dirent *entry;
 	DIR *dir = opendir( path );
@@ -445,10 +445,10 @@ public:
 	#if COMPILE_DEBUG
 	~File()
 	{
-		if( error::code == 0 )
+		if( iEngine::memoryLeakDetection && iEngine::exitCode == 0 )
 		{
-			AssertMsg( data == nullptr, "ERROR: Memory leak in File (%p) (size: %f kb) (%s)", this, size / 1024.0f, filepath );
-			AssertMsg( file == nullptr, "ERROR: Opened File but did not close! (%p) (size: %f kb) (%s)", this, size / 1024.0f, filepath );
+			AssertMsg( data == nullptr, "ERROR: Memory leak in File (%p) (size: %.2f kb) (%s)", this, KB( size ), filepath );
+			AssertMsg( file == nullptr, "ERROR: Opened File but did not close! (%p) (size: %.2f kb) (%s)", this, KB( size ), filepath );
 		}
 	}
 	#endif

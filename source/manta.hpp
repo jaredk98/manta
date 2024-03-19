@@ -16,7 +16,9 @@
 #endif
 
 #ifndef PROJECT_CAPTION
-	#define PROJECT_CAPTION PROJECT_NAME " - " PROJECT_VERSION " (" BUILD_CONFIG ") | " BUILD_OS " - " BUILD_ARCHITECTURE " - " BUILD_TOOLCHAIN " - " BUILD_GRAPHICS
+	#define PROJECT_CAPTION                                                          \
+		PROJECT_NAME " - " PROJECT_VERSION " (" BUILD_CONFIG ") | "                  \
+		BUILD_OS " - " BUILD_ARCHITECTURE " - " BUILD_TOOLCHAIN " - " BUILD_GRAPHICS
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,6 +33,14 @@
 
 #ifndef DELTA_TIME_FRAMERATE
 	#define DELTA_TIME_FRAMERATE ( 60.0f )
+#endif
+
+#ifndef DEPTH_BUFFER_ENABLED
+	#define DEPTH_BUFFER_ENABLED ( false )
+#endif
+
+#ifndef DEPTH_BUFFER_FORMAT
+	#define DEPTH_BUFFER_FORMAT ( GfxDepthFormat_R32_FLOAT )
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -17,54 +17,53 @@ struct RandomContext
 	u64 where = 0;
 
 	// Usage: randomContext.value<int>(...), randomContext.value<double>(...), etc
-	template <typename T> T value( const T min, const T max );
-	template <typename T> T value( const T max );
+	template <typename T> T random( const T min, const T max );
+	template <typename T> T random( const T max );
 
 	// Usage: randomContext.choose_value( { value1, ..., valueN } );
 	template <typename T> T choose_value( std::initializer_list<T> values )
 	{
-		return *( values.begin() + this->value<int>( static_cast<int>( values.size() ) - 1 ) );
+		return *( values.begin() + this->random<int>( static_cast<int>( values.size() ) - 1 ) );
 	}
 };
 
-template <> int RandomContext::value<int>( const int min, const int max );
-template <> int RandomContext::value<int>( const int max );
+template <> int RandomContext::random<int>( const int min, const int max );
+template <> int RandomContext::random<int>( const int max );
 
-template <> float RandomContext::value<float>( const float min, const float max );
-template <> float RandomContext::value<float>( const float max );
+template <> float RandomContext::random<float>( const float min, const float max );
+template <> float RandomContext::random<float>( const float max );
 
-template <> double RandomContext::value<double>( const double min, const double max );
-template <> double RandomContext::value<double>( const double max );
+template <> double RandomContext::random<double>( const double min, const double max );
+template <> double RandomContext::random<double>( const double max );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace irandom
+namespace iRandom
 {
-	// thread_local ensures calls to random:: do not conflict states between threads
+	// thread_local ensures calls to Random:: do not conflict states between threads
 	extern thread_local RandomContext context;
 }
 
-namespace random
+namespace Random
 {
-	static inline void seed( const u64 seed ) { irandom::context.seed( seed ); }
-	static inline u32 base() { return irandom::context.base(); }
+	inline void seed( const u64 seed ) { iRandom::context.seed( seed ); }
+	inline u32 base() { return iRandom::context.base(); }
 
-	static inline RandomContext &context() { return irandom::context; }
-
-	// Usage: random::value<int>(...), random::value<double>(...), etc
-	template <typename T> inline T value( T min, T max );
-	template <typename T> inline T value( T max );
-
-	template <> inline int value<int>( const int min, const int max ) { return irandom::context.value<int>( min, max ); }
-	template <> inline int value<int>( const int max ) { return irandom::context.value<int>( max ); }
-
-	template <> inline float value<float>( const float min, const float max ) { return irandom::context.value<float>( min, max ); }
-	template <> inline float value<float>( const float max ) { return irandom::context.value<float>( max ); }
-
-	template <> inline double value<double>( const double min, const double max ) { return irandom::context.value<double>( min, max ); }
-	template <> inline double value<double>( const double max ) { return irandom::context.value<double>( max ); }
+	inline RandomContext &context() { return iRandom::context; }
 }
 
-#define choose(...) irandom::context.choose_value( { __VA_ARGS__ } )
+template <typename T> inline T random( T min, T max );
+template <typename T> inline T random( T max );
+
+template <> inline int random<int>( const int min, const int max ) { return iRandom::context.random<int>( min, max ); }
+template <> inline int random<int>( const int max ) { return iRandom::context.random<int>( max ); }
+
+template <> inline float random<float>( const float min, const float max ) { return iRandom::context.random<float>( min, max ); }
+template <> inline float random<float>( const float max ) { return iRandom::context.random<float>( max ); }
+
+template <> inline double random<double>( const double min, const double max ) { return iRandom::context.random<double>( min, max ); }
+template <> inline double random<double>( const double max ) { return iRandom::context.random<double>( max ); }
+
+#define choose(...) iRandom::context.choose_value( { __VA_ARGS__ } )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

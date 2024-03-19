@@ -1,0 +1,26 @@
+#include <manta/time.hpp>
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool iTime::init()
+{
+	return true;
+}
+
+
+bool iTime::free()
+{
+	return true;
+}
+
+
+double Time::value()
+{
+	return 0.0;
+}
+
+
+u64 Time::seed()
+{
+	return 0;
+}

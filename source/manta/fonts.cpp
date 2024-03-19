@@ -6,6 +6,7 @@
 #include <manta/string.hpp>
 #include <manta/fileio.hpp>
 #include <manta/gfx.hpp>
+#include <manta/color.hpp>
 
 #include <vendor/vendor.hpp>
 
@@ -14,9 +15,9 @@
 u32 FontGlyphKey::hash()
 {
 	// Calculate 'randomized' offset from font id and size using prime numbers
-	constexpr u32 p1 = 41;
-	constexpr u32 p2 = 37;
-	constexpr u32 p3 = 31;
+	const u32 p1 = 41;
+	const u32 p2 = 37;
+	const u32 p3 = 31;
 	const u32 offset = ( ( font * p1 ) ^ ( size * p2 ) ) * p3 ^ ( ( ( font * p1 ) ^ ( size * p2 ) ) >> 16 );
 
 	// Calculate hash index
@@ -27,7 +28,7 @@ u32 FontGlyphKey::hash()
 
 bool FontGlyphInfo::get_glyph_metrics( const u16 font, const u16 size, const u32 codepoint )
 {
-	FontInfo &fontInfo = fonts::fontInfos[font];
+	FontInfo &fontInfo = iFonts::fontInfos[font];
 	const float scale = stbtt_ScaleForPixelHeight( &fontInfo.info, size * ( 96.0f / 72.0f ) );
 
 	// Max Ascent (TODO: considering caching this instead of getting it each time?)
@@ -58,7 +59,7 @@ bool FontGlyphInfo::get_glyph_metrics( const u16 font, const u16 size, const u32
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace fonts
+namespace iFonts
 {
 	u16 insertX = FONTS_GLYPH_PADDING;
 	u16 insertY = FONTS_GLYPH_PADDING;
@@ -76,34 +77,34 @@ namespace fonts
 }
 
 
-bool fonts::init()
+bool iFonts::init()
 {
-	// Init RTFonts table
+	// Init Fonts Table
 	Assert( data == nullptr );
 	constexpr usize size = FONTS_GROUP_SIZE * FONTS_TABLE_DEPTH * FONTS_TABLE_SIZE * sizeof( FontGlyphEntry );
 	data = reinterpret_cast<FontGlyphEntry *>( memory_alloc( size ) );
-	ErrorReturnIf( data == nullptr, false, "RTFonts: failed to allocate memory for RTFonts table" );
+	ErrorReturnIf( data == nullptr, false, "Fonts: failed to allocate memory for RTFonts table" );
 	memory_set( data, 0, size ); // Zero memory
 
-	// Setup paths
+	// Setup Paths
 	char pathFont[PATH_SIZE];
 	char pathDistributables[PATH_SIZE];
 	strjoin_filepath( pathDistributables, WORKING_DIRECTORY, "distributables" );
 
-	// Load font metrics
-	fontFiles.init( assets::fontsCount );
-	fontInfos.init( assets::fontsCount );
-	for( u16 fontID = 0; fontID < assets::fontsCount; fontID++ )
+	// Load Font MJetrics
+	fontFiles.init( Assets::fontsCount );
+	fontInfos.init( Assets::fontsCount );
+	for( u16 fontID = 0; fontID < Assets::fontsCount; fontID++ )
 	{
-		// Load font file
+		// Load Font File
 		File &fontFile = fontFiles.add( { } );
-		strjoin_filepath( pathFont, pathDistributables, assets::fonts[fontID].file );
-		ErrorReturnIf( !fontFile.open( pathFont ), false, "RTFonts: failed to open .ttf for font %d (%s)", fontID, pathFont );
+		strjoin_filepath( pathFont, pathDistributables, Assets::fonts[fontID].file );
+		ErrorReturnIf( !fontFile.open( pathFont ), false, "Fonts: failed to open .ttf for font %d (%s)", fontID, pathFont );
 
-		// Get font info
+		// Get Font Info
 		FontInfo &fontInfo = fontInfos.add( { } );
 		ErrorReturnIf( stbtt_InitFont( &fontInfo.info, fontFile.data, stbtt_GetFontOffsetForIndex( fontFile.data, 0 ) ) != 1,
-		               false, "RTFonts: failed to get metrics for font %d (%s)", fontID, pathFont );
+		               false, "Fonts: failed to get metrics for font %d (%s)", fontID, pathFont );
 	}
 
 	// Init dirtyGlyphs list
@@ -114,18 +115,18 @@ bool fonts::init()
 	textureBuffer.clear( { 0, 0, 0, 0 } );
 
 	// Init Texture2D
-	bGfx::rb_texture2d_load( texture2D, textureBuffer.data, textureBuffer.width, textureBuffer.height );
+	texture2D.init( textureBuffer.data, textureBuffer.width, textureBuffer.height, GfxColorFormat_R8G8B8A8 );
 
 	// Init bitmap buffer
 	bitmap = reinterpret_cast<byte *>( memory_alloc( FONTS_GLYPH_SIZE_MAX * FONTS_GLYPH_SIZE_MAX ) );
-	ErrorReturnIf( bitmap == nullptr, false, "RTFonts: failed to allocate memory for RTFont bitmap buffer" );
+	ErrorReturnIf( bitmap == nullptr, false, "Fonts: failed to allocate memory for RTFont bitmap buffer" );
 
 	// Success
 	return true;
 }
 
 
-bool fonts::free()
+bool iFonts::free()
 {
 	// Free RTFonts table
 	if( data != nullptr )
@@ -143,7 +144,7 @@ bool fonts::free()
 	dirtyGlyphs.free();
 
 	// Free Texture2D
-	bGfx::rb_texture2d_free( texture2D );
+	texture2D.free();
 
 	// Free bitmap buffer
 	if( bitmap != nullptr )
@@ -157,11 +158,12 @@ bool fonts::free()
 }
 
 
-FontGlyphInfo &fonts::get( FontGlyphKey key )
+FontGlyphInfo &iFonts::get( FontGlyphKey key )
 {
-	// About: The goal here is to efficiently cache and retrieve font glyphs at runtime using an optimized hashtable.
+	// About: The goal here is to efficiently cache and retrieve font glyphs at runtime using an optimized "hashtable"
+	//
 	// FontGlyphEntry is 16 bytes (FontGlyphKey + FontGlyphInfo) meaning 4 glyphs fit in a 64 byte cache line.
-	// The index 'hash' below ensures consecutive codepoints of a font and size (i.e. 'a', 'b', 'c', 'd') all share
+	// The 'hash' index below ensures consecutive codepoints of a font and size (i.e. 'a', 'b', 'c', 'd') all share
 	// a single L1 cache line. Since the hashing function can produce collisions, 'FONTS_TABLE_DEPTH' number of
 	// collisions are allowed before the glyph retrieval is aborted.
 
@@ -205,7 +207,7 @@ FontGlyphInfo &fonts::get( FontGlyphKey key )
 }
 
 
-bool fonts::pack( FontGlyphInfo &glyphInfo )
+bool iFonts::pack( FontGlyphInfo &glyphInfo )
 {
 	// Check if the glyph pushes us onto a "new line"
 	if( insertX + glyphInfo.width + FONTS_GLYPH_PADDING >= textureBuffer.width )
@@ -230,7 +232,7 @@ bool fonts::pack( FontGlyphInfo &glyphInfo )
 }
 
 
-void fonts::flush()
+void iFonts::flush()
 {
 	// Clear Glyph table cache
 	constexpr usize size = FONTS_GROUP_SIZE * FONTS_TABLE_DEPTH * FONTS_TABLE_SIZE * sizeof( FontGlyphEntry );
@@ -243,8 +245,8 @@ void fonts::flush()
 	dirtyGlyphs.clear();
 
 	// Update GPU texture
-	bGfx::rb_texture2d_free( texture2D );
-	bGfx::rb_texture2d_load( texture2D, textureBuffer.data, textureBuffer.width, textureBuffer.height );
+	texture2D.free();
+	texture2D.init( textureBuffer.data, textureBuffer.width, textureBuffer.height, GfxColorFormat_R8G8B8A8 );
 
 	// Reset packing state
 	insertX = FONTS_GLYPH_PADDING;
@@ -253,7 +255,7 @@ void fonts::flush()
 }
 
 
-void fonts::update()
+void iFonts::update()
 {
 	// Dirty?
 	if( dirtyGlyphs.size() == 0 ) { return; }
@@ -261,7 +263,7 @@ void fonts::update()
 	// Rasterize glyph bitmaps & copy to Texture2DBuffer
 	for( FontGlyphEntry &entry : dirtyGlyphs )
 	{
-		// TODO: This can cause a frame spike as rasterizing & copying glyphs is a CPU intensive task
+		// TODO: This can potentially cause frame spikes as rasterizing & copying glyphs is a CPU intensive task
 		// Consider moving this to a background thread and double buffering?
 
 		const FontGlyphKey &key = entry.key;
@@ -288,12 +290,12 @@ void fonts::update()
 	dirtyGlyphs.clear();
 
 	// Update GPU texture
-	bGfx::rb_texture2d_free( texture2D );
-	bGfx::rb_texture2d_load( texture2D, textureBuffer.data, textureBuffer.width, textureBuffer.height );
+	texture2D.free();
+	texture2D.init( textureBuffer.data, textureBuffer.width, textureBuffer.height, GfxColorFormat_R8G8B8A8 );
 }
 
 
-void fonts::cache( const u16 font, const u16 size, const u32 start, const u32 end )
+void iFonts::cache( const u16 font, const u16 size, const u32 start, const u32 end )
 {
 	for( u32 codepoint = start; codepoint <= end; codepoint++ )
 	{
@@ -302,7 +304,7 @@ void fonts::cache( const u16 font, const u16 size, const u32 start, const u32 en
 }
 
 
-void fonts::cache( const u16 font, const u16 size, const char *buffer )
+void iFonts::cache( const u16 font, const u16 size, const char *buffer )
 {
 	u32 state = UTF8_ACCEPT;
 	u32 codepoint;

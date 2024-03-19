@@ -22,6 +22,8 @@
 	extern "C" char *strstr(const char *str, const char *substr);
 	extern "C" char *strchr(const char *str, int ch);
 	extern "C" char *strrchr(const char *str, int ch);
+	extern "C" void *memchr(const void *ptr, int ch, size_t count);
+	extern "C" size_t strspn( const char *dest, const char *src );
 
 	#if PIPELINE_COMPILER_MSVC
 		// MSVC wants to know that the above declarations are intended

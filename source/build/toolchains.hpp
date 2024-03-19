@@ -17,7 +17,7 @@ struct Toolchain
 			compilerName = "cl";
 			compilerFlags = "-c -showIncludes -nologo -std:c++20 -EHsc -DUNICODE";
 			compilerFlagsIncludes = "-I\"%s\"";
-			compilerFlagsWarnings = "-wd4100 -wd4101 -wd4189 -wd4201 -wd4244 -wd4456 -wd4458 -wd4459 -wd4505 -wd4702";
+			compilerFlagsWarnings = "-wd4100 -wd4101 -wd4189 -wd4201 -wd4244 -wd4324 -wd4456 -wd4458 -wd4459 -wd4505 -wd4702 -wd4804 -wd4996";
 			if( strcmp( args.architecture,   "x64" ) == 0 ) { compilerFlagsArchitecture = ""; } else
 			if( strcmp( args.architecture, "arm64" ) == 0 ) { compilerFlagsArchitecture = "-arch:ARM64"; } else
 															{ Error( "Unsupported target architecture '%s' for compiler '%s'", args.architecture, args.toolchain ); }
@@ -61,7 +61,7 @@ struct Toolchain
 			compilerFlags = PIPELINE_OS_MACOS ? "-x objective-c++ -c -MD -MF $out.d -std=c++20 -fno-exceptions -DUNICODE" :
 			                                    "-c -MD -MF $out.d -std=c++20 -fno-exceptions -DUNICODE";
 			compilerFlagsIncludes = "-I%s";
-			compilerFlagsWarnings = "-Wno-unused-variable -Wno-unused-function -Wno-unused-private-field";
+			compilerFlagsWarnings = "-Wno-unused-variable -Wno-unused-function -Wno-unused-private-field -Wno-int-in-bool-context";
 			if( strcmp( args.architecture,   "x64" ) == 0 ) { compilerFlagsArchitecture = "-m64"; } else
 			if( strcmp( args.architecture, "arm64" ) == 0 ) { compilerFlagsArchitecture = "-march=armv8-a"; } else
 															{ Error( "Unsupported target architecture '%s' for compiler '%s'", args.architecture, args.toolchain ); }

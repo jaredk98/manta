@@ -1,11 +1,10 @@
 #include <scene.hpp>
 #include <manta/random.hpp>
-#include <manta/timer.hpp>
+#include <manta/time.hpp>
 #include <manta/assets.hpp>
 #include <manta/draw.hpp>
 #include <manta/window.hpp>
 #include <manta/input.hpp>
-#include <manta/vector.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -20,7 +19,7 @@ namespace Scene
 
 static void create_asteroid()
 {
-	Scene::objects.create<obj_asteroid>( random::value<float>( 4.0f, 8.0f ) );
+	Scene::objects.create<obj_asteroid>( random<float>( 4.0f, 8.0f ) );
 }
 
 
@@ -47,7 +46,7 @@ void scene_free()
 void scene_update( const Delta delta )
 {
 	// Spawn Asteroid
-	if( frame::tickSecond ) { create_asteroid(); }
+	if( Frame::tickSecond ) { create_asteroid(); }
 
 	// Step Objects
 	Scene::objects.event_step( delta );
@@ -58,7 +57,7 @@ void scene_update( const Delta delta )
 	if( Scene::dead )
 	{
 		// Respawn
-		if( keyboard::check_pressed( vk_space ) )
+		if( Keyboard::check_pressed( vk_space ) )
 		{
 			// Reset Astroids
 			Scene::objects.destroy_all_type( obj_asteroid );
@@ -73,6 +72,7 @@ void scene_update( const Delta delta )
 	}
 }
 
+#include <manta/gfx.hpp>
 
 void scene_draw( const Delta delta )
 {
@@ -82,19 +82,18 @@ void scene_draw( const Delta delta )
 	if( !Scene::dead )
 	{
 		// Draw Score
-		const vec2i dScore = text_dimensions_f( fnt_consolas, 24, "Score: %d", Scene::score );
-		draw_text_f( fnt_consolas, 32, window::width * 0.5f - dScore.x, 16.0f, c_white, "Score: %d", Scene::score );
+		const i32v2 dScore = text_dimensions_f( fnt_consolas, 24, "Score: %d", Scene::score );
+		draw_text_f( fnt_consolas, 32, Window::width * 0.5f - dScore.x, 16.0f, c_white, "Score: %d", Scene::score );
 	}
 	else
 	{
 		// Death Screen
-		const vec2i dMsg = text_dimensions_f( fnt_consolas, 48, "You died! Score: %d", Scene::score );
-		const vec2i dRst = text_dimensions( fnt_consolas, 24, "Press Space to restart!" );
+		const i32v2 dMsg = text_dimensions_f( fnt_consolas, 48, "You died! Score: %d", Scene::score );
+		const i32v2 dRst = text_dimensions( fnt_consolas, 24, "Press Space to restart!" );
 
-		const float cX = window::width * 0.5f;
-		const float cY = window::height * 0.5f;
-
-		draw_rectangle( 0.0f, cY - dMsg.y * 0.5f - 64.0f, window::width, cY + dRst.y * 0.5f + 64.0f, { 0, 0, 0, 127 } );
+		const float cX = Window::width * 0.5f;
+		const float cY = Window::height * 0.5f;
+		draw_rectangle( 0.0f, cY - dMsg.y * 0.5f - 64.0f, Window::width, cY + dRst.y * 0.5f + 64.0f, { 0, 0, 0, 127 } );
 		draw_text_f( fnt_consolas, 48, cX - dMsg.x * 0.5f, cY - dMsg.y * 0.5f - 32.0f, c_white, "You died! Score: %d", Scene::score );
 		draw_text( fnt_consolas, 24, cX - dRst.x * 0.5f, cY - dRst.y * 0.5f + 32.0f, c_white, "Press Space to restart!" );
 	}

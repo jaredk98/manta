@@ -5,6 +5,7 @@
 
 #include <debug.hpp>
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void *memory_alloc( const usize size )
 {
@@ -42,6 +43,12 @@ void memory_set( void *block, int c, const usize length )
 }
 
 
+int memory_compare( const void *a, const void *b, const usize size )
+{
+	return memcmp( a, b, size );
+}
+
+
 void memory_free( void *block )
 {
 	Assert( block != nullptr );
@@ -52,7 +59,6 @@ void memory_free( void *block )
 usize align_pow2( usize n )
 {
 	if( n == 0 ) { return 1; }
-
 	n -= 1;
 	n |= n >> 1;
 	n |= n >> 2;
@@ -60,6 +66,5 @@ usize align_pow2( usize n )
 	n |= n >> 8;
 	n |= n >> 16;
 	n |= n >> 32;
-
 	return n + 1;
 }

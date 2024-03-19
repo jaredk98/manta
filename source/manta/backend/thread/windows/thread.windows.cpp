@@ -6,24 +6,24 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void thread::sleep( u32 milliseconds )
+void Thread::sleep( u32 milliseconds )
 {
 	Sleep( milliseconds );
 }
 
 
-ThreadID thread::id()
+ThreadID Thread::id()
 {
 	return ThreadID( GetCurrentThreadId() );
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Thread::Thread( ThreadFunction function )
+void *Thread::create( ThreadFunction function )
 {
 	// Create the thread
-	handle = CreateThread( nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>( function ), nullptr, 0, nullptr );
+	void *handle = CreateThread( nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>( function ), nullptr, 0, nullptr );
 	ErrorIf( handle == nullptr, "WIN: Failed to create thread!" );
+	return handle;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

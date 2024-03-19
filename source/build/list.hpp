@@ -8,7 +8,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace ilist
+namespace iList
 {
 	struct List
 	{
@@ -25,9 +25,26 @@ namespace ilist
 		byte *remove_at( const usize index );
 		byte *remove_swap_at( const usize index );
 
-		inline byte *at( const usize index ) { Assert( data != nullptr ); Assert( index < current ); return data + index * stride; }
-		inline const byte *const at( const usize index ) const { Assert( data != nullptr ); Assert( index < current ); return data + index * stride; }
-		inline usize size() { Assert( data != nullptr ); return current; }
+		inline byte *at( const usize index )
+		{
+			Assert( data != nullptr );
+			Assert( index < current );
+			return data + index * stride;
+		}
+
+		inline const byte *const at( const usize index ) const
+		{
+			Assert( data != nullptr );
+			Assert( index < current );
+			return data + index * stride;
+		}
+
+		inline usize size()
+		{
+			Assert( data != nullptr );
+			return current;
+		}
+
 		inline byte *begin() { return data; }
 		inline byte *end() { return data + current * stride; }
 
@@ -44,7 +61,7 @@ template <typename T>
 class List
 {
 public:
-	List( const usize reserve = 1 ) { Assert( reserve > 0 ); init( reserve ); }
+	List( const usize reserve = 1 ) {Assert( reserve > 0 ); init( reserve ); }
 	List( const List<T> &other ) { copy( other ); }
 	List( List<T> &&other ) { move( static_cast<List<T> &&>( other ) ); }
 	~List() { free(); }
@@ -153,13 +170,16 @@ private:
 	void move( List<T> &&other )
 	{
 		if( list.data != nullptr ) { free_elements(); }
-		list.move( static_cast<ilist::List &&>( other.list ) );
+		list.move( static_cast<iList::List &&>( other.list ) );
 	}
 
 	void free_elements()
 	{
-		for( usize i = 0; i < list.current; i++ ) { reinterpret_cast<T *>( list.at( i ) )->~T(); }
+		for( usize i = 0; i < list.current; i++ )
+		{
+			reinterpret_cast<T *>( list.at( i ) )->~T();
+		}
 	}
 
-	ilist::List list { sizeof( T ) };
+	iList::List list { sizeof( T ) };
 };

@@ -28,28 +28,29 @@ PUBLIC float direction = 0.0f;
 PUBLIC float speed = 0.0f;
 PUBLIC float shootTimer = 1.0f;
 PUBLIC bool shootSide = false;
+PUBLIC int array[128];
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Events
 
 EVENT_CREATE
 {
-	x = window::width * 0.5f;
-	y = window::height * 0.5f;
+	x = Window::width * 0.5f;
+	y = Window::height * 0.5f;
 }
 
 EVENT_STEP
 {
 	// Direction
-	if( keyboard::check( vk_a ) ) { direction -= 180.0f * delta; }
-	if( keyboard::check( vk_d ) ) { direction += 180.0f * delta; }
-	if( keyboard::check( vk_w ) ) { speed += 160.0f * delta; }
-	if( keyboard::check( vk_s ) ) { speed -= 120.0f * delta; }
+	if( Keyboard::check( vk_a ) ) { direction -= 180.0f * delta; }
+	if( Keyboard::check( vk_d ) ) { direction += 180.0f * delta; }
+	if( Keyboard::check( vk_w ) ) { speed += 160.0f * delta; }
+	if( Keyboard::check( vk_s ) ) { speed -= 120.0f * delta; }
 	speed = clamp( speed, -60.0f, 240.0f );
 
 	// Wrap around screen
-	x = wrap( x, 0.0f, static_cast<float>( window::width ) );
-	y = wrap( y, 0.0f, static_cast<float>( window::height ) );
+	x = wrap( x, 0.0f, static_cast<float>( Window::width ) );
+	y = wrap( y, 0.0f, static_cast<float>( Window::height ) );
 
 	// Movement
 	x += lengthdir_x( speed * delta, direction );
@@ -57,9 +58,9 @@ EVENT_STEP
 
 	// Projectiles
 	shootTimer += delta;
-	if( keyboard::check( vk_space ) )
+	if( Keyboard::check( vk_space ) )
 	{
-		if( shootTimer >= ( keyboard::check( vk_control ) ? 0.01f : 0.1f ) )
+		if( shootTimer >= ( Keyboard::check( vk_control ) ? 0.01f : 0.1f ) )
 		{
 			// Create Projectile
 			Object projectile = Scene::objects.create( obj_projectile );
@@ -71,7 +72,7 @@ EVENT_STEP
 				handle->x = x + spawnX;
 				handle->y = y + spawnY;
 
-				handle->direction = direction + random::value<float>( -4.0f, 4.0f );
+				handle->direction = direction + random<float>( -4.0f, 4.0f );
 				handle->speed = speed + 500.0f;
 
 				speed -= 0.5f;
@@ -87,7 +88,7 @@ EVENT_STEP
 	for( auto asteroid : Scene::objects.objects<obj_asteroid>() )
 	{
 		const float radiusSqr = ( asteroid->radius * asteroid->size ) * ( asteroid->radius * asteroid->size );
-		if( vec2_length_sqr( x, y, asteroid->x, asteroid->y ) < radiusSqr )
+		if( floatv2_distance_sqr( { x, y }, { asteroid->x, asteroid->y } ) < radiusSqr )
 		{
 			Scene::objects.destroy( id );
 			return;

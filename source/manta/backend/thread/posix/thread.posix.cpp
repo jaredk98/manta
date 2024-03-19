@@ -7,24 +7,25 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void thread::sleep( u32 milliseconds )
+void Thread::sleep( u32 milliseconds )
 {
 	usleep( milliseconds * 1000 );
 }
 
 
-ThreadID thread::id()
+ThreadID Thread::id()
 {
 	return ThreadID( pthread_self() );
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-Thread::Thread( ThreadFunction function )
+void *Thread::create( ThreadFunction function )
 {
 	// Create the thread
+	void *handle;
 	int result = pthread_create( reinterpret_cast<pthread_t *>( &handle ), nullptr, function, nullptr );
 	ErrorIf( result != 0, "POSIX: Failed to create thread!" );
+	return handle;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

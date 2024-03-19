@@ -1,6 +1,5 @@
 #define _CRT_SECURE_NO_WARNINGS
 
-// boot.cpp is the only compiled translation unit for the bootstrap executable
 #define HEADER_ONLY_DEBUG ( 1 )
 #include <debug.hpp>
 
@@ -26,6 +25,7 @@ static char pathOutputGenerated[PATH_SIZE];
 static char pathOutputGeneratedConfig[PATH_SIZE];
 
 static char pathOutputRuntime[PATH_SIZE];
+static char pathOutputRuntimeDistributables[PATH_SIZE];
 static char pathOutputPackage[PATH_SIZE];
 
 static char pathSourceManta[PATH_SIZE];
@@ -48,7 +48,8 @@ int main( int argc, char **argv )
 
 	// Print Args
 	PrintColor( LOG_YELLOW, "\n>" );
-	for( int i = 0; i < argc; i++ ) { PrintColor( LOG_YELLOW, " %s", argv[i] ); }
+	const u32 exeArgsCount = args.verbose_output() ? argc : 1;
+	for( int i = 0; i < exeArgsCount; i++ ) { PrintColor( LOG_YELLOW, " %s", argv[i] ); }
 	Print( "\n" );
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -74,6 +75,7 @@ int main( int argc, char **argv )
 
 	// output/runtime
 	strjoin_filepath( pathOutputRuntime, pathOutput, "runtime" ); // projects/<project>/output/runtime
+	strjoin_filepath( pathOutputRuntimeDistributables, pathOutputRuntime, "distributables" ); // projects/<project>/output/runtime/distributables
 
 	// output/package
 	strjoin_filepath( pathOutputPackage, pathOutput, "package" ); // projects/<project>/output/package
@@ -91,6 +93,13 @@ int main( int argc, char **argv )
 // Load & Check Cache
 
 	const bool cacheDirty = PipelineCache::load( args, pathOutputBootCache );
+
+	if( !args.verbose_output() )
+	{
+		PrintColor( LOG_WHITE, "Project: " );
+		PrintColor( LOG_MAGENTA, "%s ", args.project );
+		PrintLnColor( LOG_BLUE, "(%s, %s)", args.config, args.toolchain );
+	}
 
 	PrintColor( LOG_WHITE, "Boot Cache... " );
 	PrintLnColor( cacheDirty ? LOG_RED : LOG_GREEN, cacheDirty ? "dirty" : "clean" );

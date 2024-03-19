@@ -82,7 +82,7 @@ namespace Gfx
 	#include <manta/window.hpp>
 	#include <manta/backend/window/x11/window.x11.hpp>
 
-	XVisualInfo * iwindow::x11_create_visual()
+	XVisualInfo * iWindow::x11_create_visual()
 	{
 		return nullptr;
 	}

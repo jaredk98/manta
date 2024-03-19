@@ -21,8 +21,8 @@ bool opengl_load()
 	#if !GL_MAC
 		#undef  META
 
-		#define META(type, name, ...)                                                                 \
-			if( ( n##name = reinterpret_cast<n##name##proc>( opengl_proc( #name ) ) ) == nullptr )    \
+		#define META(type, name, ...)                                                               \
+			if( ( n##name = reinterpret_cast<n##name##proc>( opengl_proc( #name ) ) ) == nullptr )  \
 				{ ErrorReturnMsg( false, "OPENGL: Failed to load OpenGL procedure (%s)", #name ); }
 
 		#include "opengl.procedures.hpp"

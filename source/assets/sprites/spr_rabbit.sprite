@@ -1,9 +1,0 @@
-{
-	"name": "spr_rabbit",
-	"texture": "spr_rabbit.png",
-	"atlas": "ui",
-
-	"count": 7,
-	"xorigin": 8,
-	"yorigin": 8,
-}

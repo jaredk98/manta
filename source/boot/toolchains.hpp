@@ -17,7 +17,7 @@ struct Toolchain
 			compilerName = "cl";
 			compilerFlags = "-c -showIncludes -nologo -std:c++20 -EHsc -DUNICODE";
 			compilerFlagsIncludes = "-I\"%s\" -I\"%s\" -I\"%s\"";
-			compilerFlagsWarnings = "-W4 -wd4100 -wd4101 -wd4189 -wd4201 -wd4244 -wd4456 -wd4458 -wd4459 -wd4505 -wd4702";
+			compilerFlagsWarnings = "-W4 -wd4100 -wd4101 -wd4189 -wd4201 -wd4244 -wd4456 -wd4458 -wd4459 -wd4505 -wd4702 -wd4996";
 			compilerOutput = "-Fo:";
 
 			linkerName = "link";
@@ -91,8 +91,8 @@ struct Toolchain
 
 static void linkerflags_add_library( char *buffer, const usize bufferSize, const Toolchain &tc, const char *library )
 {
-	istring::_strappend( bufferSize, buffer, tc.linkerPrefixLibrary );
-	istring::_strappend( bufferSize, buffer, library );
-	istring::_strappend( bufferSize, buffer, tc.linkerExtensionLibrary );
-	istring::_strappend( bufferSize, buffer, " " );
+	iString::_strappend( bufferSize, buffer, tc.linkerPrefixLibrary );
+	iString::_strappend( bufferSize, buffer, library );
+	iString::_strappend( bufferSize, buffer, tc.linkerExtensionLibrary );
+	iString::_strappend( bufferSize, buffer, " " );
 }

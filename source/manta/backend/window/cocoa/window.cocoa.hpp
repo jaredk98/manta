@@ -6,7 +6,7 @@
 	#include <vendor/stddef.hpp>
 	#import <Cocoa/Cocoa.h>
 
-	namespace iwindow
+	namespace iWindow
 	{
 		extern NSView *view;
 	}

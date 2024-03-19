@@ -19,7 +19,6 @@
 
 	extern "C" FILE *fopen( char const *filename, char const *mode );
 	extern "C" errno_t fopen_s( FILE **pFile, const char *filename, const char *mode );
-
 	extern "C" int fclose( FILE * );
 	extern "C" size_t fwrite( void const *ptr, size_t size, size_t count, FILE *stream );
 	extern "C" size_t fread( void *ptr, size_t size, size_t count, FILE *stream );
@@ -31,6 +30,7 @@
 	extern "C" int ungetc( int ch, FILE *stream );
 	extern "C" int feof( FILE *stream );
 	extern "C" int ferror( FILE *stream );
+	extern "C" char *fgets( char *str, int count, FILE *stream );
 
 	#if PIPELINE_OS_WINDOWS
 		#include <vendor/vendor.hpp>

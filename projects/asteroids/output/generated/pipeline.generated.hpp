@@ -33,6 +33,6 @@
 #define BUILD_OS "windows"
 #define BUILD_ARCHITECTURE "x64"
 #define BUILD_TOOLCHAIN "msvc"
-#define BUILD_CONFIG "release"
+#define BUILD_CONFIG "debug"
 #define BUILD_GRAPHICS "d3d11"
 

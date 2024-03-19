@@ -4,7 +4,7 @@
 node_modules/
 
 # Manta Engine
-# projects/
+projects/
 .cache
 
 # System Cache

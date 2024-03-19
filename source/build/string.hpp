@@ -13,40 +13,47 @@ inline bool char_whitespace( const char c, const bool trimTabs = true )
 	return c == ' ' || c == '\n' || c == '\r' || ( trimTabs && c == '\t' );
 }
 
-namespace istring
+namespace iString
 {
 	extern void _strjoin( const usize bufferSize, char *buffer, ... );
 	extern void _strjoin_filepath( const usize bufferSize, char *buffer, ... );
 	extern void _strappend( const usize bufferSize, char *buffer, const char *string );
 }
 
-#define strjoin( buffer, ... ) istring::_strjoin( sizeof( buffer ), buffer, __VA_ARGS__, nullptr )
-#define strjoin_filepath( buffer, ... ) istring::_strjoin_filepath( sizeof( buffer ), buffer, __VA_ARGS__, nullptr );
-#define strappend( buffer, string ) istring::_strappend( sizeof( buffer ), buffer, string )
+#define strjoin( buffer, ... ) iString::_strjoin( sizeof( buffer ), buffer, __VA_ARGS__, nullptr )
+#define strjoin_filepath( buffer, ... ) iString::_strjoin_filepath( sizeof( buffer ), buffer, __VA_ARGS__, nullptr );
+#define strappend( buffer, string ) iString::_strappend( sizeof( buffer ), buffer, string )
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#define TAB "    "
+#define COMMENT_BREAK "////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct StringView
 {
 	StringView() = default;
+	StringView( const char *data ) : data{ data }, length{ strlen( data ) } { }
 	StringView( const char *data, usize length ) : data{ data }, length{ length } { }
 	const char *data = nullptr;
 	usize length = 0;
+	char *c_str( char *buffer, const usize size );
 };
 
-static inline u32 hash( const StringView stringView )
+inline u32 hash( const StringView stringView )
 {
 	return hash( stringView.data, stringView.length );
 }
 
-static inline bool equals( const StringView a, const StringView b )
+inline bool equals( const StringView a, const StringView b )
 {
 	return a.length == b.length && strncmp( a.data, b.data, a.length ) == 0;
 }
 
-static inline bool is_null( const StringView a ) { return a.data == nullptr; }
+inline bool is_null( const StringView a ) { return a.data == nullptr; }
 
-static inline void set_null( StringView &a ) { a.data = nullptr; }
+inline void set_null( StringView &a ) { a.data = nullptr; }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -67,9 +74,11 @@ public:
 	String &copy( const String &other, usize start = 0, usize end = USIZE_MAX );
 
 	String &append( const char *str );
+	String &append( const StringView &view );
 	String &append( char str );
-	String &append( int number );
-	String &append( float number );
+	String &append( int integer );
+	String &append( u64 integer );
+	String &append( double number );
 	String operator+( const String &rhs );
 	String &operator+=( const String &rhs );
 
@@ -99,8 +108,10 @@ public:
 	inline const char *c_str() const { data[current] = '\0'; return data; }
 	inline operator const char *() const { return c_str(); }
 
-	inline       char &operator[]( const usize index )       { Assert( index < current ); return data[index]; }
-	inline const char &operator[]( const usize index ) const { Assert( index < current ); return data[index]; }
+	inline       char &operator[]( const usize index )       { Assert( index <= capacity ); return data[index]; }
+	inline const char &operator[]( const usize index ) const { Assert( index <= capacity ); return data[index]; }
+
+	const char *get_pointer( const usize index ) const { return &data[index]; }
 
 	class StringIterator
 	{
@@ -123,10 +134,11 @@ public:
 	inline StringIterator begin() { return StringIterator( data ); }
 	inline StringIterator end() { return StringIterator( data + current ); }
 
-//private:
 	void grow();
 
 	char *data = nullptr;
 	usize capacity = 0;
 	usize current = 0;
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

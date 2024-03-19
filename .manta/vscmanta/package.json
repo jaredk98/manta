@@ -34,7 +34,8 @@
 			{ "command": "vscmanta.run",                "title": "Manta: Run" },
 			{ "command": "vscmanta.package",            "title": "Manta: Package" },
 			{ "command": "vscmanta.debugRuntime",       "title": "Manta: Debug Runtime" },
-			{ "command": "vscmanta.renderdoc",          "title": "Manta: RenderDoc" }
+			{ "command": "vscmanta.renderdoc",          "title": "Manta: RenderDoc" },
+			{ "command": "vscmanta.insertCommentBreak", "title": "Manta: Inserts comment break" }
 		]
 	},
 	"devDependencies": {

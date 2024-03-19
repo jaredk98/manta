@@ -35,15 +35,15 @@ static const PIXELFORMATDESCRIPTOR pfd
 {
     sizeof( PIXELFORMATDESCRIPTOR ),
     1,
-    PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER | PFD_DEPTH_DONTCARE,
+    PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER /*| PFD_DEPTH_DONTCARE*/,
     PFD_TYPE_RGBA,
     32, // rgba bits
     0, 0, 0, 0,
     0, 0, 0, 0,
     0, 0, 0, 0,
     0,
-    0, // depth bits
-    0, // stencil bits
+    24, // depth bits
+    8, // stencil bits
     0,
     PFD_MAIN_PLANE,
     0, 0, 0, 0,
@@ -75,7 +75,7 @@ bool opengl_init()
 	HGLRC context;
 
 	// Get Device Context
-	device = GetDC( iwindow::handle );
+	device = GetDC( iWindow::handle );
 
 	// Choose Pixel Format
 	if( ( format = ChoosePixelFormat( device, &pfd ) ) == 0 )

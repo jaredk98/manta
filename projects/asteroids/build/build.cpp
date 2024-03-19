@@ -4,12 +4,12 @@
 
 int main( int argc, char **argv )
 {
-	Build builder;
+	Builder builder;
 	builder.build( argc, argv );
 	return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Override BuildCore functions here for project-specific needs
+// Override BuilderCore functions here for project-specific needs
 // ...

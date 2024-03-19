@@ -1,6 +1,7 @@
 #include <build/textureio.hpp>
+
 #include <build/memory.hpp>
-#include <build/utility.hpp>
+#include <build/math.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -15,9 +16,10 @@ void Texture2DBuffer::init( const u16 width, const u16 height )
 	if( data != nullptr ) { free(); }
 
 	// Allocate blank texture
-	data = reinterpret_cast<rgba *>( memory_alloc( width * height * sizeof( rgba ) ) );
-	ErrorIf( data == nullptr, "Failed to allocate memory for init() Texture2DBuffer (%p: memory_alloc %d bytes)", data, width * height * sizeof( rgba ) );
-	memory_set( data, 0, width * height * sizeof( rgba ) );
+	const usize size = width * height * sizeof( rgba );
+	data = reinterpret_cast<rgba *>( memory_alloc( size ) );
+	ErrorIf( data == nullptr, "Failed to allocate memory for init Texture2DBuffer (%p: alloc %llu bytes)", data, size );
+	memory_set( data, 0, size );
 	this->width = width;
 	this->height = height;
 }
@@ -72,7 +74,7 @@ bool Texture2DBuffer::load( const char *path )
 	int w, h, channels;
 	data = reinterpret_cast<rgba *>( stbi_load( path, &w, &h, &channels, sizeof( rgba ) ) ); // stb_image allocates memory for us
 	if( data == nullptr ) { width = 0; height = 0; return false; }
-	AssertMsg( w <= U16_MAX && w <= U16_MAX, "Attempting to load texture larger than max supported (try: %dx%d max:%dx%d)", w, h, U16_MAX, U16_MAX );
+	AssertMsg( w <= U16_MAX && w <= U16_MAX, "Attempting to load texture larger than max supported (try: %dx%d max:%ux%u)", w, h, U16_MAX, U16_MAX );
 	width = static_cast<u16>( w );
 	height = static_cast<u16>( h );
 	return true;
@@ -82,10 +84,10 @@ bool Texture2DBuffer::load( const char *path )
 void Texture2DBuffer::splice( Texture2DBuffer &source, const u16 srcX1, const u16 srcY1, const u16 srcX2, const u16 srcY2, const u16 dstX, const u16 dstY )
 {
 	// Error checking
-	ErrorIf( !source, "Texture2DBuffer::splice - Attempting to splice null Texture2DBuffer" );
-	ErrorIf( dstX >= width && dstY >= height, "Texture2DBuffer::splice - dstX/dstY out of bounds (dstX:%d, dstY:%d) (destination res: %dx%d)", dstX, dstY, width, height );
-	ErrorIf( srcX1 >= source.width || srcY1 >= source.height, " Texture2DBuffer::splice - srcX1/srcY1 out of bounds (srcX1:%d, srcY1:%d) (source res: %dx%d)", srcX1, srcY1, source.width, source.height );
-	ErrorIf( srcX2 > source.width || srcY2 > source.height, "Texture2DBuffer::splice - srcX2/srcY2 out of bounds (srcX2:%d, srcY2:%d) (source res: %dx%d)", srcX2, srcY2, source.width, source.height );
+	ErrorIf( !source, "%s: Attempting to splice null Texture2DBuffer", __FUNCTION__ );
+	ErrorIf( dstX >= width && dstY >= height, "%s: dstX/dstY out of bounds (dstX:%u, dstY:%u) (dst res: %ux%u)", __FUNCTION__, dstX, dstY, width, height );
+	ErrorIf( srcX1 >= source.width || srcY1 >= source.height, "%s: srcX1/srcY1 out of bounds (srcX1:%u, srcY1:%u) (src res: %ux%u)", __FUNCTION__, srcX1, srcY1, source.width, source.height );
+	ErrorIf( srcX2 > source.width || srcY2 > source.height, "%s: srcX2/srcY2 out of bounds (srcX2:%u, srcY2:%u) (src res: %ux%u)", __FUNCTION__, srcX2, srcY2, source.width, source.height );
 
 	const u16 w = min( srcX2 - srcX1, width - dstX );
 	const u16 h = min( srcY2 - srcY1, height - dstY );

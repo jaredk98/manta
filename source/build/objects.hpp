@@ -1,7 +1,6 @@
 // ObjectFile system based on manta/build/api.hpp
 #pragma once
 
-#include <build/utility.hpp>
 #include <build/string.hpp>
 #include <build/list.hpp>
 #include <build/fileio.hpp>
@@ -138,9 +137,9 @@ struct ObjectFile
 	// ObjectFile Info
 	String name;
 	String type;
-	String nameParent = "BASE_OBJECT";
-	String typeParent = "BASE_OBJECT_t";
-	String typeParentFull = "iobjects::BASE_OBJECT_t";
+	String nameParent = "OBJECT_BASE";
+	String typeParent = "OBJECT_BASE_t";
+	String typeParentFull = "iObjects::OBJECT_BASE_t";
 	String count = "-1";
 	String bucketSize = "1024";
 	bool abstract = false;
@@ -190,7 +189,7 @@ struct ObjectFile
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace objects
+namespace Objects
 {
 	// Output Paths
 	extern char pathSource[PATH_SIZE];

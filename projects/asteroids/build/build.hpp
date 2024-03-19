@@ -4,8 +4,9 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct Build : public BuildCore
+class Builder : public BuilderCore
 {
-	// Override BuildCore functions here for project-specific needs
+public:
+	// Override BuilderCore functions here for project-specific needs
 	// ...
 };

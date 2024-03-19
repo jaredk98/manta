@@ -21,7 +21,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace debug
+namespace Debug
 {
 	extern void manta_vprintf( const bool newline, const char *format, va_list args );
 	extern void manta_vprintf_color( const bool newline, unsigned char color, const char *format, va_list args );
@@ -50,16 +50,16 @@ enum
 	LOG_WHITE = 37,
 };
 
-#define Print( message, ... ) debug::manta_printf( false, message, ##__VA_ARGS__ )
-#define PrintColor( color, message, ... ) debug::manta_printf_color( false, color, message, ##__VA_ARGS__ )
-#define PrintLn( message, ... ) debug::manta_printf( true, message, ##__VA_ARGS__ )
-#define PrintLnColor( color, message, ... ) debug::manta_printf_color( true, color, message, ##__VA_ARGS__ )
+#define Print( message, ... ) Debug::manta_printf( false, message, ##__VA_ARGS__ )
+#define PrintColor( color, message, ... ) Debug::manta_printf_color( false, color, message, ##__VA_ARGS__ )
+#define PrintLn( message, ... ) Debug::manta_printf( true, message, ##__VA_ARGS__ )
+#define PrintLnColor( color, message, ... ) Debug::manta_printf_color( true, color, message, ##__VA_ARGS__ )
 
 #if COMPILE_DEBUG
-	#define DebugPrint( message, ... ) debug::manta_printf( false, message, ##__VA_ARGS__ )
-	#define DebugPrintColor( color, message, ... ) debug::manta_printf_color( false, color, message, ##__VA_ARGS__ )
-	#define DebugPrintLn( message, ... ) debug::manta_printf( true, message, ##__VA_ARGS__ )
-	#define DebugPrintLnColor( color, message, ... ) debug::manta_printf_color( true, color, message, ##__VA_ARGS__ )
+	#define DebugPrint( message, ... ) Debug::manta_printf( false, message, ##__VA_ARGS__ )
+	#define DebugPrintColor( color, message, ... ) Debug::manta_printf_color( false, color, message, ##__VA_ARGS__ )
+	#define DebugPrintLn( message, ... ) Debug::manta_printf( true, message, ##__VA_ARGS__ )
+	#define DebugPrintLnColor( color, message, ... ) Debug::manta_printf_color( true, color, message, ##__VA_ARGS__ )
 #else
 	#define DebugPrint( message, ... )
 	#define DebugPrintColor( color, message, ... )
@@ -69,9 +69,10 @@ enum
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace error
+namespace iEngine
 {
-	extern int code;
+	extern int exitCode;
+	extern bool memoryLeakDetection;
 }
 
 extern void Error( const char *format, ... );
@@ -81,29 +82,37 @@ extern void ErrorIf( const bool condition, const char *format, ... );
 
 #if COMPILE_DEBUG
 	#define ErrorReturnIf( condition, value, message, ... ) \
-		if( condition ) { debug::manta_printf_color( true, LOG_RED, "ERROR: " message " (%s)", ##__VA_ARGS__, __FILE__ ); return value; }
+		if( condition ) { Debug::manta_printf_color( true, LOG_RED, "ERROR: " message " (%s)", ##__VA_ARGS__, __FILE__ ); return value; }
 
 	#define ErrorReturnMsg( value, message, ... ) \
-		debug::manta_printf_color( true, LOG_RED, "ERROR: " message " (%s)", ##__VA_ARGS__, __FILE__ ); return value
+		Debug::manta_printf_color( true, LOG_RED, "ERROR: " message " (%s)", ##__VA_ARGS__, __FILE__ ); return value
 #else
 	#define ErrorReturnIf( condition, value, message, ... ) \
-		if( condition ) { debug::manta_printf_color( true, LOG_RED, "ERROR: " message, ##__VA_ARGS__ ); return value; }
+		if( condition ) { Debug::manta_printf_color( true, LOG_RED, "ERROR: " message, ##__VA_ARGS__ ); return value; }
 
 	#define ErrorReturnMsg( value, message, ... ) \
-		debug::manta_printf_color( true, LOG_RED, "ERROR: " message, ##__VA_ARGS__ ); return value
+		Debug::manta_printf_color( true, LOG_RED, "ERROR: " message, ##__VA_ARGS__ ); return value
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #if COMPILE_DEBUG
 	#define Assert( condition ) \
-		if( !( condition ) ) { debug::manta_assert( __FILE__, __FUNCTION__, __LINE__, #condition ); }
+		if( !( condition ) ) { Debug::manta_assert( __FILE__, __FUNCTION__, __LINE__, #condition ); }
 
 	#define AssertMsg( condition, message, ... ) \
-		if( !( condition ) ) { debug::manta_assert_message( __FILE__, __FUNCTION__, __LINE__, #condition, message, ##__VA_ARGS__ ); }
+		if( !( condition ) ) { Debug::manta_assert_message( __FILE__, __FUNCTION__, __LINE__, #condition, message, ##__VA_ARGS__ ); }
 #else
 	#define Assert( condition )
 	#define AssertMsg( condition, message, ... )
+#endif
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#if COMPILE_DEBUG
+	#define DEBUG(code) code
+#else
+	#define DEBUG(code)
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -113,3 +122,5 @@ extern void ErrorIf( const bool condition, const char *format, ... );
 	// benefit from separating implementations from debug.hpp
 	#include <debug.cpp>
 #endif
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,12 +1,12 @@
 #include <manta/random.hpp>
-#include <manta/timer.hpp>
+#include <manta/time.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace irandom
+namespace iRandom
 {
-	// thread_local ensures calls to random:: do not conflict states between threads
-	thread_local RandomContext context { timer::seed() };
+	// thread_local ensures calls to Random:: do not conflict states between threads
+	thread_local RandomContext context { Time::seed() };
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +39,7 @@ u32 RandomContext::base()
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <> int RandomContext::value<int>( const int min, const int max )
+template <> int RandomContext::random<int>( const int min, const int max )
 {
 	u32 x = base();
 	u64 m = static_cast<u64>( x ) * static_cast<u64>( max - min + 1 );
@@ -47,7 +47,7 @@ template <> int RandomContext::value<int>( const int min, const int max )
 }
 
 
-template <> int RandomContext::value<int>( const int max )
+template <> int RandomContext::random<int>( const int max )
 {
 	u32 x = base();
 	u64 m = static_cast<u64>( x ) * static_cast<u64>( max + 1 );
@@ -56,26 +56,26 @@ template <> int RandomContext::value<int>( const int max )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <> float RandomContext::value<float>( float min, float max )
+template <> float RandomContext::random<float>( float min, float max )
 {
 	return base() * 0x1.0p-32f * ( max - min ) + min;
 }
 
 
-template <> float RandomContext::value<float>( const float max )
+template <> float RandomContext::random<float>( const float max )
 {
 	return base() * 0x1.0p-32f * max;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <> double RandomContext::value<double>( const double min, const double max )
+template <> double RandomContext::random<double>( const double min, const double max )
 {
 	return base() * 0x1.0p-32 * ( max - min ) + min;
 }
 
 
-template <> double RandomContext::value<double>( const double max )
+template <> double RandomContext::random<double>( const double max )
 {
 	return base() * 0x1.0p-32 * max;
 }

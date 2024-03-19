@@ -9,7 +9,7 @@ template <int N> struct ObjectHandle { };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define __INTERNAL_OBJECT_DEFINITION_BEGIN() namespace iobjects {
+#define __INTERNAL_OBJECT_DEFINITION_BEGIN() namespace iObjects {
 #define __INTERNAL_OBJECT_DEFINITION_END() /* namespace */ }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +147,7 @@ public:
 	template <int N, typename... Args> Object create( Args... args )
 	{
 		// Create objects with manual constructor
-		iobjects::object_constructor<N, Args...>::construct( args... );
+		iObjects::object_constructor<N, Args...>::construct( args... );
 		return create_manual_constructor( N );
 	}
 

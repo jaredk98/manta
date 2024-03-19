@@ -115,7 +115,7 @@ ObjectContext::ObjectBucket *ObjectContext::new_object_bucket( const u16 type )
 	Assert( type > NULL_TYPE && type < OBJECT_TYPE_COUNT );
 
 	// Can we add more of this object?
-	if( objectCountType[type] == iobjects::OBJECT_TYPE_MAX_COUNT[type] )
+	if( objectCountType[type] == iObjects::OBJECT_TYPE_MAX_COUNT[type] )
 	{
 		return nullptr;
 	}
@@ -128,7 +128,7 @@ ObjectContext::ObjectBucket *ObjectContext::new_object_bucket( const u16 type )
 	for( ;; )
 	{
 		// Early out if the bucket still has capacity
-		if( LIKELY( bucket->current < iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] ) ) { break; }
+		if( LIKELY( bucket->current < iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] ) ) { break; }
 
 		// This bucket is full, but a 'next' bucket of our type already exists
 		if( bucket->bucketIDNext != NULL_BUCKET && buckets[bucket->bucketIDNext].type == bucket->type )
@@ -246,8 +246,8 @@ bool ObjectContext::ObjectBucket::init( const u16 type )
 	this->bottom = 0;
 
 	// Allocate Memory
-	data = reinterpret_cast<byte *>( memory_alloc( iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] * iobjects::OBJECT_TYPE_SIZE[type] ) );
-	if( data != nullptr ) { memory_set( data, 0, iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] * iobjects::OBJECT_TYPE_SIZE[type] ); return true; }
+	data = reinterpret_cast<byte *>( memory_alloc( iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] * iObjects::OBJECT_TYPE_SIZE[type] ) );
+	if( data != nullptr ) { memory_set( data, 0, iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] * iObjects::OBJECT_TYPE_SIZE[type] ); return true; }
 	return false;
 }
 
@@ -267,8 +267,8 @@ void ObjectContext::ObjectBucket::clear()
 	if( data == nullptr ) { return; }
 	for( u32 i = 0; i < top; i++ )
 	{
-		byte *const objectPtr = data + i * iobjects::OBJECT_TYPE_SIZE[type];
-		delete_object( i, reinterpret_cast<iobjects::BASE_OBJECT_t *>( objectPtr )->id.generation );
+		byte *const objectPtr = data + i * iObjects::OBJECT_TYPE_SIZE[type];
+		delete_object( i, reinterpret_cast<iObjects::OBJECT_BASE_t *>( objectPtr )->id.generation );
 	}
 }
 
@@ -277,25 +277,25 @@ Object ObjectContext::ObjectBucket::new_object( const bool defaultConstructor )
 {
 	// At capacity?
 	Assert( data != nullptr );
-	if( UNLIKELY( current == iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] ) ) { return NULL_OBJECT; }
+	if( UNLIKELY( current == iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] ) ) { return NULL_OBJECT; }
 
 	// Object Constructor
-	byte *const objectPtr = data + current * iobjects::OBJECT_TYPE_SIZE[type];
-	iobjects::BASE_OBJECT_t *object = reinterpret_cast<iobjects::BASE_OBJECT_t *>( objectPtr );
+	byte *const objectPtr = data + current * iObjects::OBJECT_TYPE_SIZE[type];
+	iObjects::OBJECT_BASE_t *object = reinterpret_cast<iObjects::OBJECT_BASE_t *>( objectPtr );
 	const u16 generation = object->id.generation + 1;
-	const byte *const constructorTable = defaultConstructor ? iobjects::OBJECT_CTOR_DEFAULT_BUFFER : iobjects::OBJECT_CTOR_MANUAL_BUFFER;
-	const byte *const constructor = constructorTable + iobjects::OBJECT_CTOR_BUFFER_OFFSET[type];
-	memory_copy( object, constructor, iobjects::OBJECT_TYPE_SIZE[type] );
+	const byte *const constructorTable = defaultConstructor ? iObjects::OBJECT_CTOR_DEFAULT_BUFFER : iObjects::OBJECT_CTOR_MANUAL_BUFFER;
+	const byte *const constructor = constructorTable + iObjects::OBJECT_CTOR_BUFFER_OFFSET[type];
+	memory_copy( object, constructor, iObjects::OBJECT_TYPE_SIZE[type] );
 
 	// Set Object
 	object->id = { type, generation, bucketID, current };
 	object->id.alive = true;
 
 	// Move current to next open slot
-	while( ++current < iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] )
+	while( ++current < iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] )
 	{
-		const byte *const objectPtr = data + current * iobjects::OBJECT_TYPE_SIZE[type];
-		if( reinterpret_cast<const iobjects::BASE_OBJECT_t *>( objectPtr )->id.alive == false ) { break; }
+		const byte *const objectPtr = data + current * iObjects::OBJECT_TYPE_SIZE[type];
+		if( reinterpret_cast<const iObjects::OBJECT_BASE_t *>( objectPtr )->id.alive == false ) { break; }
 	}
 
 	// Update bottom & top
@@ -321,9 +321,9 @@ bool ObjectContext::ObjectBucket::delete_object( const u16 index, const u16 gene
 {
 	// Verify alive
 	Assert( data != nullptr );
-	Assert( index < iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] );
-	byte *const objectPtr = data + index * iobjects::OBJECT_TYPE_SIZE[type];
-	iobjects::BASE_OBJECT_t *object = reinterpret_cast<iobjects::BASE_OBJECT_t *>( objectPtr );
+	Assert( index < iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] );
+	byte *const objectPtr = data + index * iObjects::OBJECT_TYPE_SIZE[type];
+	iObjects::OBJECT_BASE_t *object = reinterpret_cast<iObjects::OBJECT_BASE_t *>( objectPtr );
 	if( UNLIKELY( object->id.alive == false ) ) { return false; } // object isn't alive
 	if( UNLIKELY( object->id.generation != generation ) ) { return false; } // object doesn't match current object's generation
 
@@ -339,23 +339,23 @@ bool ObjectContext::ObjectBucket::delete_object( const u16 index, const u16 gene
 	// Update bottom
 	if( index == bottom )
 	{
-		iobjects::BASE_OBJECT_t *objectBottom = reinterpret_cast<iobjects::BASE_OBJECT_t *>( data + bottom * iobjects::OBJECT_TYPE_SIZE[type] );
-		while( bottom < iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] && objectBottom->id.alive == false )
+		iObjects::OBJECT_BASE_t *objectBottom = reinterpret_cast<iObjects::OBJECT_BASE_t *>( data + bottom * iObjects::OBJECT_TYPE_SIZE[type] );
+		while( bottom < iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] && objectBottom->id.alive == false )
 		{
 			bottom++;
-			objectBottom = reinterpret_cast<iobjects::BASE_OBJECT_t *>( data + bottom * iobjects::OBJECT_TYPE_SIZE[type] );
+			objectBottom = reinterpret_cast<iObjects::OBJECT_BASE_t *>( data + bottom * iObjects::OBJECT_TYPE_SIZE[type] );
 		}
-		if( bottom == iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] ) { bottom = 0; }
+		if( bottom == iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] ) { bottom = 0; }
 	}
 
 	// Update top
 	if( index == ( top - 1 ) )
 	{
-		iobjects::BASE_OBJECT_t *objectTop = reinterpret_cast<iobjects::BASE_OBJECT_t *>( data + ( top - 1 ) * iobjects::OBJECT_TYPE_SIZE[type] );
+		iObjects::OBJECT_BASE_t *objectTop = reinterpret_cast<iObjects::OBJECT_BASE_t *>( data + ( top - 1 ) * iObjects::OBJECT_TYPE_SIZE[type] );
 		while( top > 0 && objectTop->id.alive == false )
 		{
 			top--;
-			objectTop = reinterpret_cast<iobjects::BASE_OBJECT_t *>( data + ( top - 1 ) * iobjects::OBJECT_TYPE_SIZE[type] );
+			objectTop = reinterpret_cast<iObjects::OBJECT_BASE_t *>( data + ( top - 1 ) * iObjects::OBJECT_TYPE_SIZE[type] );
 		}
 	}
 
@@ -375,9 +375,9 @@ byte * ObjectContext::ObjectBucket::get_object( const u16 index, const u16 gener
 {
 	// Get Object Pointer
 	Assert( data != nullptr );
-	Assert( index < iobjects::OBJECT_TYPE_BUCKET_CAPACITY[type] );
-	byte *objectPtr = data + index * iobjects::OBJECT_TYPE_SIZE[type];
-	const iobjects::BASE_OBJECT_t *const object = reinterpret_cast<iobjects::BASE_OBJECT_t *>( objectPtr );
+	Assert( index < iObjects::OBJECT_TYPE_BUCKET_CAPACITY[type] );
+	byte *objectPtr = data + index * iObjects::OBJECT_TYPE_SIZE[type];
+	const iObjects::OBJECT_BASE_t *const object = reinterpret_cast<iObjects::OBJECT_BASE_t *>( objectPtr );
 
 	// Error cases
 	if( UNLIKELY( object->id.alive == false ) ) { return nullptr; } // object slot isn't alive
@@ -404,8 +404,8 @@ void ObjectContext::ObjectBucketIterator::find_object( u32 startIndex )
 			// Loop over the bucket's instances & check if they're alive
 			for( u32 i = startIndex; i < bucket->top; i++ )
 			{
-				byte *const objectPtr = bucket->data + i * iobjects::OBJECT_TYPE_SIZE[bucket->type];
-				const iobjects::BASE_OBJECT_t *const object = reinterpret_cast<const iobjects::BASE_OBJECT_t *>( objectPtr );
+				byte *const objectPtr = bucket->data + i * iObjects::OBJECT_TYPE_SIZE[bucket->type];
+				const iObjects::OBJECT_BASE_t *const object = reinterpret_cast<const iObjects::OBJECT_BASE_t *>( objectPtr );
 
 				if( object->id.alive )
 				{
@@ -429,8 +429,8 @@ void ObjectContext::ObjectBucketIterator::find_object( u32 startIndex )
 		if( !polymorphic ) { break; }
 
 		// If so, check if the bucket is one of our child types
-		const u16 targetTypeDepth = iobjects::OBJECT_TYPE_INHERITANCE_DEPTH[this->type];
-		const u16 bucketTypeDepth = iobjects::OBJECT_TYPE_INHERITANCE_DEPTH[bucket->type];
+		const u16 targetTypeDepth = iObjects::OBJECT_TYPE_INHERITANCE_DEPTH[this->type];
+		const u16 bucketTypeDepth = iObjects::OBJECT_TYPE_INHERITANCE_DEPTH[bucket->type];
 		if( bucketTypeDepth > targetTypeDepth ) { continue; }
 
 		// We must be at the end of valid buckets

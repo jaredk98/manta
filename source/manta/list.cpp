@@ -3,7 +3,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace ilist
+namespace iList
 {
 	void List::init( const usize reserve )
 	{
@@ -11,7 +11,7 @@ namespace ilist
 		capacity = reserve;
 		current = 0;
 		data = reinterpret_cast<byte *>( memory_alloc( capacity * stride ) );
-		ErrorIf( data == nullptr, "Failed to allocate memory for init() List (%p: memory_alloc %d bytes)", data, capacity * stride );
+		ErrorIf( data == nullptr, "Failed to allocate memory for init List (%p: alloc %d bytes)", data, capacity * stride );
 	}
 
 
@@ -25,10 +25,10 @@ namespace ilist
 	void List::grow()
 	{
 		Assert( data != nullptr );
-		ErrorIf( capacity == USIZE_MAX, "Failed to grow() List -- it is already at capacity (%p: capacity: %d bytes)", data, capacity * stride );
+		ErrorIf( capacity == USIZE_MAX, "Failed to grow List: at capacity (%p: capacity: %d bytes)", data, capacity * stride );
 		capacity = capacity == 0 ? 1 : ( capacity >= USIZE_MAX / 2 ? USIZE_MAX : capacity * 2 );
 		data = reinterpret_cast<byte *>( memory_realloc( data, capacity * stride ) );
-		ErrorIf( data == nullptr, "Failed to reallocate memory for grow() List (%p: memory_realloc %d bytes)", data, capacity * stride );
+		ErrorIf( data == nullptr, "Failed to allocate memory for grow List (%p: alloc %d bytes)", data, capacity * stride );
 	}
 
 
@@ -40,7 +40,7 @@ namespace ilist
 		current = other.current;
 		stride = other.stride;
 		data = reinterpret_cast<byte *>( memory_alloc( capacity * stride ) );
-		ErrorIf( data == nullptr, "Failed to allocate memory for copy() List (%p: memory_alloc %d bytes)", data, capacity * stride );
+		ErrorIf( data == nullptr, "Failed to allocate memory to copy List (%p: alloc %d bytes)", data, capacity * stride );
 		memory_copy( data, other.data, capacity * stride );
 	}
 

@@ -24,9 +24,9 @@ u32 FontRanges::make_new( const FontRange &fontRange )
 
 void FontRanges::write()
 {
-	Buffer &binary = assets::binary;
-	String &header = assets::header;
-	String &source = assets::source;
+	Buffer &binary = Assets::binary;
+	String &header = Assets::header;
+	String &source = Assets::source;
 
 	// Binary - do nothing
 	{
@@ -45,7 +45,7 @@ void FontRanges::write()
 			"u32 end;" );
 
 		// Table
-		header.append( "namespace assets\n{\n" );
+		header.append( "namespace Assets\n{\n" );
 		header.append( "\tconstexpr u32 fontRangesCount = " ).append( static_cast<int>( fontRanges.size() ) ).append( ";\n" );
 		header.append( "\textern const DiskFontRange fontRanges[];\n" );
 		header.append( "}\n\n" );
@@ -55,7 +55,7 @@ void FontRanges::write()
 	{
 		// Group
 		assets_group( source );
-		source.append( "namespace assets\n{\n" );
+		source.append( "namespace Assets\n{\n" );
 
 		// Table
 		char buffer[PATH_SIZE];
@@ -87,7 +87,7 @@ void Fonts::gather( const char *path, const bool recurse )
 	if( verbose_output() )
 	{
 		const u32 count = files.size();
-		PrintColor( LOG_CYAN, "\t\t%u font%s found in: %s", count, count == 1 ? "" : "s", path );
+		PrintColor( LOG_CYAN, TAB TAB "%u font%s found in: %s", count, count == 1 ? "" : "s", path );
 		PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() );
 	}
 }
@@ -100,12 +100,12 @@ void Fonts::load( const char *path )
 	JSON fontJSON { fontFile };
 
 	// Cache
-	assets::assetFileCount++;
-	if( !build::cacheDirtyAssets )
+	Assets::assetFileCount++;
+	if( !Build::cacheDirtyAssets )
 	{
 		FileTime time;
 		file_time( path, &time );
-		build::cacheDirtyAssets |= file_time_newer( time, assets::timeCache );
+		Build::cacheDirtyAssets |= file_time_newer( time, Assets::timeCache );
 	}
 
 	// Read file (json)
@@ -127,8 +127,8 @@ void Fonts::load( const char *path )
 	JSON range = ranges.ObjectAt( font.fontRangeIDs.size() );
 	while( range )
 	{
-		const u32 fontRangeID = assets::fontRanges.make_new( { } );
-		FontRange &fontRange = assets::fontRanges[fontRangeID];
+		const u32 fontRangeID = Assets::fontRanges.make_new( { } );
+		FontRange &fontRange = Assets::fontRanges[fontRangeID];
 		font.fontRangeIDs.add( fontRangeID );
 
 		const int start = range.GetInt( "start" );
@@ -156,12 +156,10 @@ void Fonts::load( const char *path )
 	char ttfPath[PATH_SIZE];
 	strjoin( ttfPath, pathRelative );
 
-	char pathDistributables[PATH_SIZE];
-	strjoin_filepath( pathDistributables, build::pathOutput, "runtime", "distributables" );
-	directory_create( pathDistributables );
+	directory_create( Build::pathOutputRuntimeDistributables );
 
 	char ttfPathDistributables[PATH_SIZE];
-	strjoin_filepath( ttfPathDistributables, pathDistributables, font.file.c_str() );
+	strjoin_filepath( ttfPathDistributables, Build::pathOutputRuntimeDistributables, font.file.c_str() );
 
 	// Try relative path first...
 	if( !file_copy( ttfPath, ttfPathDistributables ) )
@@ -175,9 +173,9 @@ void Fonts::load( const char *path )
 
 void Fonts::write()
 {
-	Buffer &binary = assets::binary;
-	String &header = assets::header;
-	String &source = assets::source;
+	Buffer &binary = Assets::binary;
+	String &header = Assets::header;
+	String &source = Assets::source;
 
 	Timer timer;
 
@@ -207,7 +205,7 @@ void Fonts::write()
 		header.append( "};\n\n" );
 
 		// Tables
-		header.append( "namespace assets\n{\n" );
+		header.append( "namespace Assets\n{\n" );
 		header.append( "\tconstexpr u32 fontsCount = " ).append( static_cast<int>( fonts.size() ) ).append( ";\n" );
 		header.append( "\textern const DiskFont fonts[];\n" );
 		header.append( "}\n\n" );
@@ -217,7 +215,7 @@ void Fonts::write()
 	{
 		// Group
 		assets_group( source );
-		source.append( "namespace assets\n{\n" );
+		source.append( "namespace Assets\n{\n" );
 
 		// DiskFont Table
 		char buffer[PATH_SIZE];
@@ -235,14 +233,13 @@ void Fonts::write()
 			source.append( buffer );
 		}
 		source.append( "\t};\n\n" );
-
 		source.append( "}\n\n" );
 	}
 
 	if( verbose_output() )
 	{
 		const usize count = fonts.size();
-		PrintColor( LOG_CYAN, "\t\tWrote %d fonts%s", count, count == 1 ? "s" : "" );
+		PrintColor( LOG_CYAN, "\t\tWrote %d font%s", count, count == 1 ? "" : "s" );
 		PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() );
 	}
 }

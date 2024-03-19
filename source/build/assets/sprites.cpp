@@ -35,7 +35,7 @@ void Sprites::gather( const char *path, const bool recurse )
 	if( verbose_output() )
 	{
 		const u32 count = files.size();
-		PrintColor( LOG_CYAN, "\t\t%u sprite%s found in: %s", count, count == 1 ? "" : "s", path );
+		PrintColor( LOG_CYAN, TAB TAB "%u sprite%s found in: %s", count, count == 1 ? "" : "s", path );
 		PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() );
 	}
 }
@@ -49,12 +49,12 @@ void Sprites::load( const char *path )
 	JSON spriteJSON { spriteFile };
 
 	// Build Cache
-	assets::assetFileCount++;
-	if( !build::cacheDirtyAssets )
+	Assets::assetFileCount++;
+	if( !Build::cacheDirtyAssets )
 	{
 		FileTime time;
 		file_time( path, &time );
-		build::cacheDirtyAssets |= file_time_newer( time, assets::timeCache );
+		Build::cacheDirtyAssets |= file_time_newer( time, Assets::timeCache );
 	}
 
 	// Read file (json)
@@ -92,7 +92,7 @@ void Sprites::load( const char *path )
 	sprite.yorigin = yorigin;
 
 	// Pack as atlas
-	sprite.textureID = assets::textures.make_new( atlas );
+	sprite.textureID = Assets::textures.make_new( atlas );
 	sprite.glyphID = GLYPHID_MAX;
 
 	// Split sprite into individual glyphs
@@ -107,7 +107,7 @@ void Sprites::load( const char *path )
 
 		glyphTexture.splice( spriteTexture, glyphU1, glyphV1, glyphU2, glyphV2, 0, 0 );
 
-		GlyphID glyphID = assets::textures[sprite.textureID].add_glyph( static_cast<Texture2DBuffer &&>( glyphTexture ) );
+		GlyphID glyphID = Assets::textures[sprite.textureID].add_glyph( static_cast<Texture2DBuffer &&>( glyphTexture ) );
 		if( sprite.glyphID == GLYPHID_MAX ) { sprite.glyphID = glyphID; } // Store the first glyph only
 	}
 
@@ -122,9 +122,9 @@ void Sprites::load( const char *path )
 
 void Sprites::write()
 {
-	Buffer &binary = assets::binary;
-	String &header = assets::header;
-	String &source = assets::source;
+	Buffer &binary = Assets::binary;
+	String &header = Assets::header;
+	String &source = Assets::source;
 
 	Timer timer;
 
@@ -160,7 +160,7 @@ void Sprites::write()
 		header.append( "};\n\n" );
 
 		// Table
-		header.append( "namespace assets\n{\n" );
+		header.append( "namespace Assets\n{\n" );
 		header.append( "\tconstexpr u32 spritesCount = " ).append( static_cast<int>( sprites.size() ) ).append( ";\n" );
 		header.append( "\textern const DiskSprite sprites[];\n" );
 		header.append( "}\n\n" );
@@ -170,7 +170,7 @@ void Sprites::write()
 	{
 		// Group
 		assets_group( source );
-		source.append( "namespace assets\n{\n" );
+		source.append( "namespace Assets\n{\n" );
 
 		// Table
 		char buffer[PATH_SIZE];
@@ -197,7 +197,7 @@ void Sprites::write()
 	if( verbose_output() )
 	{
 		const usize count = sprites.size();
-		PrintColor( LOG_CYAN, "\t\tWrote %d sprite%s", count, count == 1 ? "s" : "" );
+		PrintColor( LOG_CYAN, "\t\tWrote %d sprite%s", count, count == 1 ? "" : "s" );
 		PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() );
 	}
 }

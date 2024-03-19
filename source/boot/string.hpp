@@ -10,7 +10,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace istring
+namespace iString
 {
 	static void _strjoin( const usize bufferSize, char *buffer, ... )
 	{
@@ -89,6 +89,6 @@ namespace istring
 	}
 }
 
-#define strjoin( buffer, ... ) istring::_strjoin( sizeof( buffer ), buffer, __VA_ARGS__, nullptr )
-#define strjoin_filepath( buffer, ... ) istring::_filepath( sizeof( buffer ), buffer, __VA_ARGS__, nullptr );
-#define strappend( buffer, string ) istring::_strappend( sizeof( buffer ), buffer, string )
+#define strjoin( buffer, ... ) iString::_strjoin( sizeof( buffer ), buffer, __VA_ARGS__, nullptr )
+#define strjoin_filepath( buffer, ... ) iString::_filepath( sizeof( buffer ), buffer, __VA_ARGS__, nullptr );
+#define strappend( buffer, string ) iString::_strappend( sizeof( buffer ), buffer, string )

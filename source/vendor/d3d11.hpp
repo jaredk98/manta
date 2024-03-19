@@ -1,6 +1,7 @@
 #pragma once
 #include <vendor/config.hpp>
 
+
 #if USE_OFFICIAL_HEADERS
 	#include <vendor/conflicts.hpp>
 		#include <d3d11_1.h>

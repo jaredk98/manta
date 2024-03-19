@@ -5,26 +5,36 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace assets
+namespace Assets
 {
 	File binary;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool iassets::init()
+bool iAssets::init()
 {
 	// Open Binary File
 	char pathBinary[PATH_SIZE];
 	strjoin( pathBinary, WORKING_DIRECTORY, SLASH BUILD_PROJECT, ".bin" );
-	ErrorReturnIf( !assets::binary.open( pathBinary ), false, "Assets: Failed to open binary file: %s", pathBinary );
+	if( !Assets::binary.open( pathBinary ) )
+	{
+		strjoin( pathBinary, BUILD_PROJECT, ".bin" );
+		ErrorReturnIf( !Assets::binary.open( pathBinary ), false, "Assets: Failed to open binary file: %s", pathBinary );
+	}
 
 	// Success
 	return true;
 }
 
-bool iassets::free()
+
+bool iAssets::free()
 {
 	// Close Binary File
-	return assets::binary.close();
+	Assets::binary.close();
+
+	// Success
+	return true;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

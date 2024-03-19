@@ -77,7 +77,7 @@ set project=
 	)
 
 :strap
-	call projects\%project%\output\boot\boot.exe %*
+	call projects\%project%\output\boot\boot.exe -verbose=0 %*
 	goto final
 
 :final

@@ -1,14 +1,14 @@
 #include <manta/engine.hpp>
 
 #include <manta/assets.hpp>
-#include <manta/fileio.hpp>
-#include <manta/gfx.hpp>
-#include <manta/timer.hpp>
+#include <manta/time.hpp>
 #include <manta/window.hpp>
+#include <manta/gfx.hpp>
 #include <manta/objects.hpp>
-#include <manta/input.hpp>
-#include <manta/thread.hpp>
 #include <manta/fonts.hpp>
+
+#include <manta/input.hpp>
+#include <manta/fileio.hpp>
 
 #include <config.hpp>
 #include <debug.hpp>
@@ -16,81 +16,74 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace engine
+namespace Engine
 {
 	static bool init( int argc, char **argv )
 	{
-		// Assets
-		ErrorReturnIf( !iassets::init(), false, "Engine: failed to initialize assets" );
+		const bool newGfx = ( strcmp( PROJECT_NAME, "gfx_new" ) == 0 );
 
-		// Timer
-		ErrorReturnIf( !itimer::init(), false, "Engine: failed to initialize timer" );
+		// Assets
+		ErrorReturnIf( !iAssets::init(), false, "Engine: failed to initialize assets" );
+
+		// Time
+		ErrorReturnIf( !iTime::init(), false, "Engine: failed to initialize timer" );
 
 		// Window
-		ErrorReturnIf( !iwindow::init(), false, "Engine: failed to initialize window" );
+		ErrorReturnIf( !iWindow::init(), false, "Engine: failed to initialize window" );
 
-		// Render
-		ErrorReturnIf( !bGfx::init(), false, "Engine: failed to initialize graphics" );
+		// Graphics
+		ErrorReturnIf( !fGfx::init(), false, "Engine: failed to initialize graphics" );
 
 		// Objects
-		ErrorReturnIf( !iobjects::init(), false, "Engine: failed to initialize object system" );
-
-		// Assets
-		ErrorReturnIf( !iassets::init(), false, "Engine: failed to initialize assets" );
+		ErrorReturnIf( !iObjects::init(), false, "Engine: failed to initialize object system" );
 
 		// Fonts
-		ErrorReturnIf( !fonts::init(), false, "Engine: failed to initialize font system" );
+		ErrorReturnIf( !iFonts::init(), false, "Engine: failed to initialize font system" );
 
 		// Success
 		return true;
 	}
-
 
 	static bool free()
 	{
 		// Fonts
-		ErrorReturnIf( !fonts::free(), false, "Engine: failed to free fonts" );
-
-		// Assets
-		// ErrorReturnIf( !iassets::free(), false, "Engine: failed to free assets" ); // TODO
+		ErrorReturnIf( !iFonts::free(), false, "Engine: failed to free fonts" );
 
 		// Objects
-		// ErrorReturnIf( !iobjects::free(), false, "Engine: failed to free objects" ); // TODO
+		ErrorReturnIf( !iObjects::free(), false, "Engine: failed to free objects" );
 
-		// Render
-		ErrorReturnIf( !bGfx::free(), false, "Engine: failed to free render" );
+		// Graphics
+		ErrorReturnIf( !fGfx::free(), false, "Engine: failed to free render" );
 
 		// Window
-		// ErrorReturnIf( !iwindow::free(), false, "Engine: failed to free window" ); // TODO
+		ErrorReturnIf( !iWindow::free(), false, "Engine: failed to free window" );
 
-		// Timer
-		// ErrorReturnIf( !itimer::free(), false, "Engine: failed to free timer" ); // TODO
+		// Time
+		ErrorReturnIf( !iTime::free(), false, "Engine: failed to free timer" );
 
 		// Assets
-		ErrorReturnIf( !iassets::free(), false, "Engine: failed to free assets" );
+		ErrorReturnIf( !iAssets::free(), false, "Engine: failed to free assets" );
 
 		// Success
 		return true;
 	}
 
-
 	static void update( const Delta delta )
 	{
 		// Input
-		input::update( delta );
+		Input::update( delta );
 
 		// Window
-		window::update( delta );
+		Window::update( delta );
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace engine
+namespace Engine
 {
-	static bool painted; // Delay showing the window until after a frame is rendered
-	static bool exiting; // Terminates the main loop
-	static bool restart; // Reboot engine upon exiting (without relaunching exe)
+	static bool painted = false; // Delay showing the window until after a frame is rendered
+	static bool exiting = false; // Terminates the main loop
 
 	int main( int argc, char **argv, const ProjectCallbacks &project )
 	{
@@ -103,56 +96,41 @@ namespace engine
 		Print( "\n" );
 
 		// Main Loop
-		do
 		{
-			// Set flags
-			painted = false;
-			exiting = false;
-			restart = false;
-
 			// Init Engine & Project
-			ErrorIf( !engine::init( argc, argv ), "Failed to initialize the engine" );
+			ErrorIf( !Engine::init( argc, argv ), "Failed to initialize the engine" );
 			ErrorIf( !project.init( argc, argv ), "Failed to initialize the project" );
 
 			// Main Loop
 			while( !exiting )
 			{
-				frame::start();
+				Frame::start();
 				{
 					// Update Engine & Project
-					engine::update( frame::delta );
-					project.update( frame::delta );
+					Engine::update( Frame::delta );
+					project.update( Frame::delta );
 
 					// Show the window after at least 1 frame has been rendered
-					if( !painted ) { iwindow::show(); painted = true; }
+					if( !painted ) { iWindow::show(); painted = true; }
 				}
-				frame::end();
+				Frame::end();
 			}
 
-			if( true/*restart*/ )
-			{
-				// Free Project & Engine (if restarting--otherwise no need to cleanup)
+			// Free Project & Engine (if restarting--otherwise no need to cleanup)
+			#if 0
 				ErrorIf( !project.free(), "Failed to free the project" );
-				ErrorIf( !engine::free(), "Failed to free the engine" );
-			}
+				ErrorIf( !Engine::free(), "Failed to free the engine" );
+			#else
+				iEngine::memoryLeakDetection = false;
+			#endif
 		}
-		while( restart );
 
 		// Return Code
-		return error::code;
+		return iEngine::exitCode;
 	}
-
 
 	void exit()
 	{
 		exiting = true;
-		restart = false;
-	}
-
-
-	void reboot()
-	{
-		exiting = true;
-		restart = true;
 	}
 }

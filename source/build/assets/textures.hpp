@@ -20,6 +20,7 @@ struct Texture
 	u16 width = 0;
 	u16 height = 0;
 
+	bool atlasTexture = true;
 	List<GlyphID> glyphs;
 	GlyphID add_glyph( Texture2DBuffer &&textureBuffer );
 	void pack();

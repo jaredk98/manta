@@ -1,40 +1,65 @@
 #include <manta/gfx.hpp>
 
-#include <manta/backend/gfx/d3d11/d3d11.hpp>
+#include <vendor/d3d11.hpp>
+#include <vendor/d3dcompiler.hpp> // TODO: Remove from runtime
 
-#include <manta/window.hpp>
+#include <manta/backend/gfx/gfxfactory.hpp>
 #include <manta/backend/window/windows/window.windows.hpp>
 
-#include <manta/matrix.hpp>
-#include <manta/memory.hpp>
+#include <gfx.api.generated.hpp>
 
+#include <traits.hpp>
 #include <config.hpp>
 
-#define DECL_ZERO(description, name) description name; memory_set( &name, 0, sizeof( description ) )
+#include <manta/window.hpp>
+#include <manta/math.hpp>
+#include <manta/memory.hpp>
+#include <manta/hashmap.hpp>
+#include <manta/memory.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-struct D3D11ColorFormat
-{
-	D3D11ColorFormat( const DXGI_FORMAT texture2DDescFormat ) : texture2DDescFormat{ texture2DDescFormat } { }
+static GUID D3D11_IID_IDXGIFactory { 0x7B7166EC, 0x21C7, 0x44AE, { 0xB2, 0x1A, 0xC9, 0xAE, 0x32, 0x1A, 0xE3, 0x69 } };
+static GUID D3D11_IID_ID3D11Texture2D { 0x6F15AAF2, 0xD208, 0x4E89, { 0x9A, 0xB4, 0x48, 0x95, 0x35, 0xD3, 0x4F, 0x9C } };
 
-	DXGI_FORMAT texture2DDescFormat;
-};
+#if 1
+#define DECL_ZERO(type, name) type name; memory_set( &name, 0, sizeof( type ) )
+#else
+#define DECL_ZERO(type, name) type name
+#endif
 
-static const D3D11ColorFormat D3D11ColorFormats[] =
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static ID3D11Device *device = nullptr;
+
+static ID3D11DeviceContext *context = nullptr;
+
+static IDXGIFactory *factory = nullptr;
+
+static IDXGISwapChain *swapChain = nullptr;
+static UINT swapChainFlagsCreate;
+static UINT swapChainFlagsPresent;
+
+static ID3D11RenderTargetView *renderTargetColor = nullptr;
+static ID3D11DepthStencilView *renderTargetDepth = nullptr;
+
+static ID3D11ShaderResourceView *textureSlots[255];
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static const DXGI_FORMAT D3D11ColorFormats[] =
 {
-	{ DXGI_FORMAT_UNKNOWN },           // GfxColorFormat_NONE (TODO: Handle this properly)
-	{ DXGI_FORMAT_R8G8B8A8_UNORM },    // GfxColorFormat_R8G8B8A8
-	{ DXGI_FORMAT_R10G10B10A2_UNORM }, // GfxColorFormat_R10G10B10A2
-	{ DXGI_FORMAT_R8_UNORM },          // GfxColorFormat_R8
-	{ DXGI_FORMAT_R8G8_UNORM },        // GfxColorFormat_R8G8
-	{ DXGI_FORMAT_R16_UNORM },         // GfxColorFormat_R16
-	{ DXGI_FORMAT_R16G16_UNORM },      // GfxColorFormat_R16G16
-	{ DXGI_FORMAT_R32_FLOAT },         // GfxColorFormat_R32
+	DXGI_FORMAT_UNKNOWN,           // GfxColorFormat_NONE
+	DXGI_FORMAT_R8G8B8A8_UNORM,    // GfxColorFormat_R8G8B8A8
+	DXGI_FORMAT_R10G10B10A2_UNORM, // GfxColorFormat_R10G10B10A2
+	DXGI_FORMAT_R8_UNORM,          // GfxColorFormat_R8
+	DXGI_FORMAT_R8G8_UNORM,        // GfxColorFormat_R8G8
+	DXGI_FORMAT_R16_UNORM,         // GfxColorFormat_R16
+	DXGI_FORMAT_R16G16_UNORM,      // GfxColorFormat_R16G16
+	DXGI_FORMAT_R32_FLOAT,         // GfxColorFormat_R32
 };
 static_assert( ARRAY_LENGTH( D3D11ColorFormats ) == GFXCOLORFORMAT_COUNT, "Missing GfxColorFormat!" );
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct D3D11DepthStencilFormat
 {
@@ -55,78 +80,240 @@ static const D3D11DepthStencilFormat D3D11DepthStencilFormats[] =
 };
 static_assert( ARRAY_LENGTH( D3D11DepthStencilFormats ) == GFXDEPTHFORMAT_COUNT, "Missing GfxDepthFormat!" );
 
+
+static const D3D11_FILL_MODE D3D11FillModes[] =
+{
+	D3D11_FILL_SOLID,     // GfxFillMode_SOLID
+	D3D11_FILL_WIREFRAME, // GfxFillMode_WIREFRAME
+};
+static_assert( ARRAY_LENGTH( D3D11FillModes ) == GFXFILLMODE_COUNT, "Missing GfxFillMode!" );
+
+
+static const D3D11_CULL_MODE D3D11CullModes[] =
+{
+	D3D11_CULL_NONE,  // GfxCullMode_NONE
+	D3D11_CULL_FRONT, // GfxCullMode_FRONT
+	D3D11_CULL_BACK,  // GfxCullMode_BACK
+};
+static_assert( ARRAY_LENGTH( D3D11CullModes ) == GFXCULLMODE_COUNT, "Missing GfxCullMode!" );
+
+
+static const D3D11_FILTER D3D11FilteringModes[] =
+{
+	D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR, // GfxFilteringMode_NEAREST
+	D3D11_FILTER_MIN_MAG_MIP_LINEAR,       // GfxFilteringMode_LINEAR
+	D3D11_FILTER_ANISOTROPIC,              // GfxFilteringMode_ANISOTROPIC
+};
+static_assert( ARRAY_LENGTH( D3D11FilteringModes ) == GFXFILTERINGMODE_COUNT, "Missing GfxFilteringMode!" );
+
+
+static const D3D11_TEXTURE_ADDRESS_MODE D3D11UVWrapModes[] =
+{
+	D3D11_TEXTURE_ADDRESS_WRAP,   // GfxUVWrapMode_WRAP
+	D3D11_TEXTURE_ADDRESS_MIRROR, // GfxUVWrapMode_MIRROR
+	D3D11_TEXTURE_ADDRESS_CLAMP,  // GfxUVWrapMode_CLAMP
+};
+static_assert( ARRAY_LENGTH( D3D11UVWrapModes ) == GFXUVWRAPMODE_COUNT, "Missing GfxUVWrapMode!" );
+
+
+static const D3D11_BLEND D3D11BlendFactors[] =
+{
+	D3D11_BLEND_ZERO,           // GfxBlendFactor_ZERO
+	D3D11_BLEND_ONE,            // GfxBlendFactor_ONE
+	D3D11_BLEND_SRC_COLOR,      // GfxBlendFactor_SRC_COLOR
+	D3D11_BLEND_INV_SRC_COLOR,  // GfxBlendFactor_INV_SRC_COLOR
+	D3D11_BLEND_SRC_ALPHA,      // GfxBlendFactor_SRC_ALPHA
+	D3D11_BLEND_INV_SRC_ALPHA,  // GfxBlendFactor_INV_SRC_ALPHA
+	D3D11_BLEND_DEST_ALPHA,     // GfxBlendFactor_DEST_ALPHA
+	D3D11_BLEND_INV_DEST_ALPHA, // GfxBlendFactor_INV_DEST_ALPHA
+	D3D11_BLEND_DEST_COLOR,     // GfxBlendFactor_DEST_COLOR
+	D3D11_BLEND_INV_DEST_COLOR, // GfxBlendFactor_INV_DEST_COLOR
+	D3D11_BLEND_SRC_ALPHA_SAT,  // GfxBlendFactor_SRC_ALPHA_SAT
+	D3D11_BLEND_SRC1_COLOR,     // GfxBlendFactor_SRC1_COLOR
+	D3D11_BLEND_INV_SRC1_COLOR, // GfxBlendFactor_INV_SRC1_COLOR
+	D3D11_BLEND_SRC1_ALPHA,     // GfxBlendFactor_SRC1_ALPHA
+	D3D11_BLEND_INV_SRC1_ALPHA, // GfxBlendFactor_INV_SRC1_ALPHA
+};
+static_assert( ARRAY_LENGTH( D3D11BlendFactors ) == GFXBLENDFACTOR_COUNT, "Missing GfxBlendFactor!" );
+
+
+static const D3D11_BLEND_OP D3D11BlendOperations[] =
+{
+	D3D11_BLEND_OP_ADD,          // GfxBlendOperation_ADD
+	D3D11_BLEND_OP_SUBTRACT,     // GfxBlendOperation_SUBTRACT
+	D3D11_BLEND_OP_REV_SUBTRACT, // GfxBlendOperation_REV_SUBTRACT
+	D3D11_BLEND_OP_MIN,          // GfxBlendOperation_MIN
+	D3D11_BLEND_OP_MAX,          // GfxBlendOperation_MAX
+};
+static_assert( ARRAY_LENGTH( D3D11BlendOperations ) == GFXBLENDOPERATION_COUNT, "Missing GfxBlendOperation!" );
+
+
+static const D3D11_DEPTH_WRITE_MASK D3D11DepthWriteMasks[] =
+{
+	D3D11_DEPTH_WRITE_MASK_ZERO, // GfxDepthWriteFlag_NONE
+	D3D11_DEPTH_WRITE_MASK_ALL,  // GfxDepthWriteFlag_ALL
+};
+static_assert( ARRAY_LENGTH( D3D11DepthWriteMasks ) == GFXDEPTHWRITEFLAG_COUNT, "Missing GfxDepthWriteFlag!" );
+
+
+static const D3D11_COMPARISON_FUNC D3D11DepthTestModes[] =
+{
+	D3D11_COMPARISON_ALWAYS,        // GfxDepthTestMode_NONE
+	D3D11_COMPARISON_LESS,          // GfxDepthTestMode_LESS
+	D3D11_COMPARISON_LESS_EQUAL,    // GfxDepthTestMode_LESS_EQUALS
+	D3D11_COMPARISON_GREATER,       // GfxDepthTestMode_GREATER
+	D3D11_COMPARISON_GREATER_EQUAL, // GfxDepthTestMode_GREATER_EQUALS
+	D3D11_COMPARISON_EQUAL,         // GfxDepthTestMode_EQUAL
+	D3D11_COMPARISON_NOT_EQUAL,     // GfxDepthTestMode_NOT_EQUAL
+	D3D11_COMPARISON_ALWAYS,        // GfxDepthTestMode_ALWAYS
+};
+static_assert( ARRAY_LENGTH( D3D11DepthTestModes ) == GFXDEPTHTESTMODE_COUNT, "Missing GfxDepthTestMode!" );
+
+
+static const DXGI_FORMAT D3D11IndexBufferFormats[] =
+{
+	DXGI_FORMAT_UNKNOWN,  // GfxIndexBufferFormat_NONE
+	DXGI_FORMAT_R8_UINT,  // GfxIndexBufferFormat_U8
+	DXGI_FORMAT_R16_UINT, // GfxIndexBufferFormat_U16
+	DXGI_FORMAT_R32_UINT, // GfxIndexBufferFormat_U32
+};
+static_assert( ARRAY_LENGTH( D3D11IndexBufferFormats ) == GFXINDEXBUFFERFORMAT_COUNT, "Missing GfxIndexBufferFormat!" );
+
+
+struct D3D11MapAccessMode
+{
+	D3D11MapAccessMode( const UINT cpuAccessFlag, const D3D11_MAP d3d11Map, const D3D11_USAGE d3d11Usage ) :
+		cpuAccessFlag{ cpuAccessFlag }, d3d11Map{ d3d11Map }, d3d11Usage{ d3d11Usage } { }
+
+	UINT cpuAccessFlag;
+	D3D11_MAP d3d11Map;
+	D3D11_USAGE d3d11Usage;
+};
+
+enum
+{
+	D3D11_CPU_ACCESS_NONE = 0,
+	D3D11_CPU_ACCESS_READ_WRITE = D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE,
+};
+
+static const D3D11MapAccessMode D3D11CPUAccessModes[] =
+{
+	{ D3D11_CPU_ACCESS_NONE,       D3D11_MAP_WRITE_NO_OVERWRITE, D3D11_USAGE_IMMUTABLE }, // GfxCPUAccessMode_NONE
+	{ D3D11_CPU_ACCESS_READ,       D3D11_MAP_READ,               D3D11_USAGE_IMMUTABLE }, // GfxCPUAccessMode_READ
+	{ D3D11_CPU_ACCESS_READ_WRITE, D3D11_MAP_READ_WRITE,         D3D11_USAGE_DYNAMIC },   // GfxCPUAccessMode_READ_WRITE
+	{ D3D11_CPU_ACCESS_WRITE,      D3D11_MAP_WRITE,              D3D11_USAGE_DYNAMIC },   // GfxCPUAccessMode_WRITE
+	{ D3D11_CPU_ACCESS_WRITE,      D3D11_MAP_WRITE_DISCARD,      D3D11_USAGE_DYNAMIC },   // GfxCPUAccessMode_WRITE_DISCARD
+	{ D3D11_CPU_ACCESS_WRITE,      D3D11_MAP_WRITE_NO_OVERWRITE, D3D11_USAGE_DYNAMIC },   // GfxCPUAccessMode_WRITE_NO_OVERWRITE
+};
+static_assert( ARRAY_LENGTH( D3D11CPUAccessModes ) == GFXCPUACCESSMODE_COUNT, "Missing GfxCPUAccessMode!" );
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// The GUIDs used for this API
-static const GUID IID_IDXGIFactory    { 0x7B7166EC, 0x21C7, 0x44AE, { 0xB2, 0x1A, 0xC9, 0xAE, 0x32, 0x1A, 0xE3, 0x69 } };
-static const GUID IID_ID3D11Texture2D { 0x6F15AAF2, 0xD208, 0x4E89, { 0x9A, 0xB4, 0x48, 0x95, 0x35, 0xD3, 0x4F, 0x9C } };
-
-// Graphics Device Interface
-static ID3D11Device *device;
-
-// Graphics Context Interface
-static ID3D11DeviceContext *context;
-
-// Swap Chain Description
-static DXGI_SWAP_CHAIN_DESC sc_desc;
-
-// Swap Chain Interface
-static IDXGISwapChain *swap_chain;
-
-// The flags used to create the swap chain
-static UINT swap_flags_create;
-
-// The flags used to present the swap chain
-static UINT swap_flags_present;
-
-// Raster State Description
-static D3D11_RASTERIZER_DESC rs_desc;
-
-// Sampler State Description
-static D3D11_SAMPLER_DESC ss_desc;
-
-// Blend State Description
-static D3D11_BLEND_DESC bs_desc;
-
-// Depth-Stencil State Description
-static D3D11_DEPTH_STENCIL_DESC ds_desc;
-
-// Currently bound color buffer
-static ID3D11RenderTargetView *target_color;
-
-// Currently bound depth buffer
-static ID3D11DepthStencilView *target_depth;
-
-// Buffer Description & Data
-static D3D11_BUFFER_DESC bf_desc;
-static D3D11_SUBRESOURCE_DATA bf_data;
-
-// TODO: Refactor
-static ID3D11Buffer *vertex_buffer;
-static ID3D11Buffer *index_buffer;
-static const UINT stride = sizeof( GfxVertex );
-static const UINT offset = 0;
-
-// TODO - temporary
-static ID3D11Buffer *matrix_buffer;
-
-struct MatrixBuffer
+struct GfxVertexBufferResource : public GfxResource
 {
-	Matrix matrixMVP;
+	ID3D11Buffer *buffer = nullptr;
+	GfxCPUAccessMode accessMode;
+	bool mapped = false;
+	byte *data = nullptr;
+	UINT size = 0; // buffer size in bytes
+	UINT stride = 0; // vertex size in bytes
+	UINT offset = 0;
+	UINT current = 0;
+};
+
+
+struct GfxIndexBufferResource : public GfxResource
+{
+	ID3D11Buffer *buffer = nullptr;
+	GfxCPUAccessMode accessMode = GfxCPUAccessMode_NONE;
+	GfxIndexBufferFormat format = GfxIndexBufferFormat_U32;
+	double indToVertRatio = 1.0;
+	UINT size = 0; // buffer size in bytes
+};
+
+
+struct GfxConstantBufferResource : public GfxResource
+{
+	ID3D11Buffer *buffer = nullptr;
+	bool mapped = false;
+	byte *data = nullptr;
+	const char *name = "";
+	int index = 0;
+	UINT size = 0; // buffer size in bytes
+};
+
+
+struct GfxTexture2DResource : public GfxResource
+{
+	ID3D11ShaderResourceView *view = nullptr;
+	GfxColorFormat colorFormat;
+	u32 width = 0;
+	u32 height = 0;
+};
+
+
+struct GfxRenderTarget2DResource : public GfxResource
+{
+	ID3D11RenderTargetView *targetColor = nullptr;
+	ID3D11DepthStencilView *targetDepth = nullptr;
+	ID3D11Texture2D *stagingColor = nullptr;
+	ID3D11Texture2D *stagingDepth = nullptr;
+	GfxRenderTargetDescription desc = { };
+	u16 width = 0;
+	u16 height = 0;
+};
+
+
+struct GfxShaderResource : public GfxResource
+{
+	ID3D11VertexShader *vs = nullptr;
+	ID3D11PixelShader *ps = nullptr;
+	ID3D11InputLayout *il = nullptr; // TODO: Generate these from shader code?
+	UINT sizeVS, sizePS, sizeCS;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bool bGfx::init()
-{
-	// Flags
-#if COMPILE_DEBUG
-	UINT flags = D3D11_CREATE_DEVICE_SINGLETHREADED | D3D11_CREATE_DEVICE_DEBUG;
-#else
-	UINT flags = D3D11_CREATE_DEVICE_SINGLETHREADED;
-#endif
+static GfxResourceFactory<GfxVertexBufferResource, GFX_RESOURCE_COUNT_VERTEX_BUFFER> vertexBufferResources;
+static GfxResourceFactory<GfxIndexBufferResource, GFX_RESOURCE_COUNT_INDEX_BUFFER> indexBufferResources;
+static GfxResourceFactory<GfxConstantBufferResource, GFX_RESOURCE_COUNT_CONSTANT_BUFFER> constantBufferResources;
+static GfxResourceFactory<GfxShaderResource, GFX_RESOURCE_COUNT_SHADER> shaderResources;
+static GfxResourceFactory<GfxTexture2DResource, GFX_RESOURCE_COUNT_TEXTURE_2D> texture2DResources;
+static GfxResourceFactory<GfxRenderTarget2DResource, GFX_RESOURCE_COUNT_RENDER_TARGET_2D> renderTarget2DResources;
 
-	// Feature Level
+
+static bool resources_init()
+{
+	vertexBufferResources.init();
+	indexBufferResources.init();
+	constantBufferResources.init();
+	texture2DResources.init();
+	renderTarget2DResources.init();
+	shaderResources.init();
+
+	// Success
+	return true;
+}
+
+
+static bool resources_free()
+{
+	vertexBufferResources.free();
+	indexBufferResources.free();
+	constantBufferResources.free();
+	texture2DResources.free();
+	renderTarget2DResources.free();
+	shaderResources.free();
+
+	// Success
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static bool d3d11_device_init()
+{
+	// Feature Levels
 	D3D_FEATURE_LEVEL featureLevel;
 	D3D_FEATURE_LEVEL featureLevels[] =
 	{
@@ -135,56 +322,203 @@ bool bGfx::init()
 	};
 	UINT numFeatureLevels = sizeof( featureLevels ) / sizeof( featureLevels[0] );
 
-	// Create Device
-	if( FAILED( D3D11CreateDevice( nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags,
-	                               featureLevels, numFeatureLevels, D3D11_SDK_VERSION,
-								   &device, &featureLevel, &context ) ) )
+	// Flags
+#if COMPILE_DEBUG
+	UINT flags = 0;//D3D11_CREATE_DEVICE_SINGLETHREADED | D3D11_CREATE_DEVICE_DEBUG; TODO: Fix this
+#else
+	UINT flags = 0;
+	//UINT flags = D3D11_CREATE_DEVICE_SINGLETHREADED;
+#endif
+
+	// Device
+	if( FAILED( D3D11CreateDevice( nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, flags, featureLevels, numFeatureLevels,
+	                               D3D11_SDK_VERSION, &device, &featureLevel, &context ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create device", __FUNCTION__ );
 	}
 
-	// Create Factor
-	IDXGIFactory *factory;
-	if( FAILED( CreateDXGIFactory( IID_IDXGIFactory, reinterpret_cast<void **>( &factory ) ) ) )
+	// Success
+	return true;
+}
+
+
+static bool d3d11_device_free()
+{
+	device->Release();
+	return true;
+}
+
+
+static bool d3d11_factory_init()
+{
+	// Factory
+	if( FAILED( CreateDXGIFactory( D3D11_IID_IDXGIFactory, reinterpret_cast<void **>( &factory ) ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create DXGI factory", __FUNCTION__ );
 	}
 
+	// Success
+	return true;
+}
+
+
+static bool d3d11_factory_free()
+{
+	factory->Release();
+	return true;
+}
+
+
+static inline void d3d11_draw( const UINT vertexCount, const UINT startVertexLocation )
+{
+	fGfx::state_apply();
+	context->Draw( vertexCount, startVertexLocation );
+	PROFILE_GFX( Gfx::stats.frame.drawCalls++ );
+	PROFILE_GFX( Gfx::stats.frame.vertexCount += vertexCount );
+}
+
+
+static inline void d3d11_draw_indexed( const UINT vertexCount, const UINT startVertexLocation, const INT baseVertexLocation )
+{
+	fGfx::state_apply();
+	context->DrawIndexed( vertexCount, startVertexLocation, baseVertexLocation );
+	PROFILE_GFX( Gfx::stats.frame.drawCalls++ );
+	PROFILE_GFX( Gfx::stats.frame.vertexCount += vertexCount );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_init()
+{
+	// GfxState
+	GfxState &state = Gfx::state();
+	const u16 w = Window::width;
+	const u16 h = Window::height;
+	const u16 f = Window::fullscreen;
+
+	// Internal
+	for( u32 i = 0; i < ARRAY_LENGTH( textureSlots ); i++ ) { textureSlots[i] = nullptr; }
+
+	// Resources
+	ErrorReturnIf( !resources_init(), false, "%s: Failed to create gfx resources", __FUNCTION__ );
+
+	// D3D11 Device
+	ErrorReturnIf( !d3d11_device_init(), false, "%s: Failed to create D3D11 device", __FUNCTION__ );
+
+	// D3D11 Factory
+	ErrorReturnIf( !d3d11_factory_init(), false, "%s: Failed to create D3D11 factory", __FUNCTION__ );
+
+	// Swapchain
+	ErrorReturnIf( !bGfx::rb_swapchain_init( w, h, f ), false, "%s: Failed to create swap chain", __FUNCTION__ );
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_free()
+{
+	// Device
+	d3d11_device_free();
+
+	// Factory
+	d3d11_factory_free();
+
+	// Resources
+	resources_free();
+
+	// Success
+	return true;
+}
+
+
+void bGfx::rb_frame_begin()
+{
+	// Reset Render Targets
+#if DEPTH_BUFFER_ENABLED
+	ID3D11RenderTargetView *colorTargets[1];
+	colorTargets[0] = renderTargetColor;
+	context->OMSetRenderTargets( 1, colorTargets, renderTargetDepth );
+#else
+	context->OMSetRenderTargets( 1, &renderTargetColor, nullptr );
+#endif
+}
+
+
+void bGfx::rb_frame_end()
+{
+	// Swap Buffers
+	const bool swap = SUCCEEDED( swapChain->Present( false, swapChainFlagsPresent ) );
+	Assert( swap );
+}
+
+
+void bGfx::rb_clear_color( const Color color )
+{
+	FLOAT rgba[4];
+	static constexpr float INV_255 = 1.0f / 255.0f;
+	rgba[0] = color.r * INV_255;
+	rgba[1] = color.g * INV_255;
+	rgba[2] = color.b * INV_255;
+	rgba[3] = color.a * INV_255;
+	context->ClearRenderTargetView( renderTargetColor, rgba );
+}
+
+
+void bGfx::rb_clear_depth( const float depth )
+{
+	if( renderTargetDepth == nullptr ) { return; }
+	context->ClearDepthStencilView( renderTargetDepth, D3D11_CLEAR_DEPTH, depth, 0 );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_swapchain_init( const u16 width, const u16 height, const bool fullscreen )
+{
+	// Cache State
+	GfxSwapChain &swapChainCache = bGfx::swapchain;
+	swapChainCache.width = width;
+	swapChainCache.height = height;
+	swapChainCache.fullscreen = fullscreen;
+
 	// Setup Swap Chain Description
-	sc_desc.BufferDesc.Width = window::width;
-	sc_desc.BufferDesc.Height = window::height;
-	sc_desc.BufferDesc.RefreshRate.Numerator = 0;
-	sc_desc.BufferDesc.RefreshRate.Denominator = 1;
-	sc_desc.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	sc_desc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
-	sc_desc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+	DECL_ZERO( DXGI_SWAP_CHAIN_DESC, swapChainDesc );
+	swapChainDesc.BufferDesc.Width = width;
+	swapChainDesc.BufferDesc.Height = height;
+	swapChainDesc.BufferDesc.RefreshRate.Numerator = 0;
+	swapChainDesc.BufferDesc.RefreshRate.Denominator = 1;
+	swapChainDesc.BufferDesc.Format = D3D11ColorFormats[GfxColorFormat_R8G8B8A8];
+	swapChainDesc.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+	swapChainDesc.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 
-	sc_desc.SampleDesc.Count = 1;
-	sc_desc.SampleDesc.Quality = 0;
+	swapChainDesc.SampleDesc.Count = 1;
+	swapChainDesc.SampleDesc.Quality = 0;
 
-	sc_desc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	sc_desc.BufferCount = 2;
-	sc_desc.OutputWindow = iwindow::handle;
-	sc_desc.Windowed = true;
-	sc_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
-	sc_desc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+	swapChainDesc.BufferCount = 2;
+	swapChainDesc.OutputWindow = iWindow::handle;
+	swapChainDesc.Windowed = true;
+	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
 
 	// Create Swap Chain
-	if( FAILED( factory->CreateSwapChain( device, &sc_desc, &swap_chain ) ) )
+	Assert( swapChain == nullptr );
+	PROFILE_GFX( Gfx::stats.gpuMemoryFramebuffer = GFX_SIZE_IMAGE_COLOR_BYTES( width, height, 1, GfxColorFormat_R8G8B8A8 ) );
+	if( FAILED( factory->CreateSwapChain( device, &swapChainDesc, &swapChain ) ) )
 	{
 		// If we fail to create a swap chain that should be compatible with Windows 10,
 		// we'll falll back to a windows 8.1 compatible one...
-		sc_desc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+		swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
 
-		if( FAILED( factory->CreateSwapChain( device, &sc_desc, &swap_chain ) ) )
+		if( FAILED( factory->CreateSwapChain( device, &swapChainDesc, &swapChain ) ) )
 		{
 			// If we fail to create a swap chain that should be compatible with Windows 8.1,
 			// we'll fall back to a standard compatible one...
-			sc_desc.BufferCount = 1;
-			sc_desc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-			sc_desc.Flags = 0;
+			swapChainDesc.BufferCount = 1;
+			swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+			swapChainDesc.Flags = 0;
 
-			if( FAILED( factory->CreateSwapChain( device, &sc_desc, &swap_chain ) ) )
+			if( FAILED( factory->CreateSwapChain( device, &swapChainDesc, &swapChain ) ) )
 			{
 				// We were unable to make any swap chain... this is an error
 				ErrorReturnMsg( false, "%s: Failed to create swap chain", __FUNCTION__ );
@@ -192,178 +526,880 @@ bool bGfx::init()
 		}
 	}
 
-	swap_flags_create = sc_desc.Flags;
-	swap_flags_present = sc_desc.Flags == DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING ? DXGI_PRESENT_ALLOW_TEARING : 0;
+	// Cache Flags
+	swapChainFlagsCreate = swapChainDesc.Flags;
+	swapChainFlagsPresent = swapChainDesc.Flags == DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING ? DXGI_PRESENT_ALLOW_TEARING : 0;
 
-	// Disable Alt + Enter
+	// Disable Alt + Enter (TODO: Move somewhere else?)
 	IDXGIFactory *parent;
-	if( SUCCEEDED( swap_chain->GetParent( IID_IDXGIFactory, reinterpret_cast<void **>( &parent ) ) ) )
+	if( SUCCEEDED( swapChain->GetParent( D3D11_IID_IDXGIFactory, reinterpret_cast<void **>( &parent ) ) ) )
 	{
-		parent->MakeWindowAssociation( iwindow::handle, DXGI_MWA_NO_ALT_ENTER );
+		parent->MakeWindowAssociation( iWindow::handle, DXGI_MWA_NO_ALT_ENTER );
 		parent->Release();
 	}
 
-	// Get Back Buffer Pointer
+	// Swapchain Render Targets
 	ID3D11Texture2D *buffer;
-	if( FAILED( swap_chain->GetBuffer( 0, IID_ID3D11Texture2D, reinterpret_cast<void **>( &buffer ) ) ) )
 	{
-		ErrorReturnMsg( false, "%s: Failed to get back buffer pointer", __FUNCTION__ );
+		// Get Swapchain Back Buffer Pointer
+		if( FAILED( swapChain->GetBuffer( 0, D3D11_IID_ID3D11Texture2D, reinterpret_cast<void **>( &buffer ) ) ) )
+		{
+			ErrorReturnMsg( false, "%s: Failed to get back buffer pointer", __FUNCTION__ );
+		}
+
+		// Create Render Target View
+		Assert( renderTargetColor == nullptr );
+		if( FAILED( device->CreateRenderTargetView( buffer, nullptr, &renderTargetColor ) ) )
+		{
+			ErrorReturnMsg( false, "%s: Failed to create render target view", __FUNCTION__ );
+		}
+
+		// TODO: Depth buffer on swap chain
+		// ...
+	}
+	buffer->Release();
+
+	// Depth Buffer
+	#if DEPTH_BUFFER_ENABLED
+	{
+		DECL_ZERO( D3D11_TEXTURE2D_DESC, texDesc );
+		texDesc.Width = width;
+		texDesc.Height = height;
+		texDesc.MipLevels = 1;
+		texDesc.ArraySize = 1;
+		texDesc.Format = D3D11DepthStencilFormats[DEPTH_BUFFER_FORMAT].texture2DDescFormat; // TODO
+		texDesc.SampleDesc.Count = 1;
+		texDesc.SampleDesc.Quality = 0;
+		texDesc.Usage = D3D11_USAGE_DEFAULT;
+		texDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		texDesc.CPUAccessFlags = 0;
+		texDesc.MiscFlags = 0;
+
+		ID3D11Texture2D *textureDepth = nullptr;
+		PROFILE_GFX( Gfx::stats.gpuMemoryFramebuffer += GFX_SIZE_IMAGE_DEPTH_BYTES( width, height, 1, GfxDepthFormat_R24_UINT_G8_UINT ) );
+		ErrorReturnIf( FAILED( device->CreateTexture2D( &texDesc, nullptr, &textureDepth ) ), false,
+						"%s: Failed to create depth texture 2d", __FUNCTION__ );
+
+		// Depth-Stencil View
+		DECL_ZERO( D3D11_DEPTH_STENCIL_VIEW_DESC, dsvDesc );
+		dsvDesc.Format = D3D11DepthStencilFormats[DEPTH_BUFFER_FORMAT].depthStencilViewDescFormat;
+		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		dsvDesc.Flags = 0;
+		dsvDesc.Texture2D.MipSlice = 0;
+
+		ErrorReturnIf( FAILED( device->CreateDepthStencilView( textureDepth, &dsvDesc, &renderTargetDepth ) ), false,
+						"%s: Failed to create depth render target view", __FUNCTION__ );
+	}
+	#endif
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_swapchain_free()
+{
+	Assert( swapChain != nullptr );
+
+	swapChain->Release();
+	swapChain = nullptr;
+
+	return true;
+}
+
+
+bool bGfx::rb_swapchain_resize( u16 width, u16 height, bool fullscreen )
+{
+	// Cache State
+	GfxSwapChain &swapChainCache = bGfx::swapchain;
+	swapChainCache.width = width;
+	swapChainCache.height = height;
+	swapChainCache.fullscreen = fullscreen;
+
+	// Unbind Render Target
+	context->OMSetRenderTargets( 0, nullptr, nullptr );
+
+	// Release Render Target
+	renderTargetColor->Release();
+
+	// Resize Buffers
+	PROFILE_GFX( Gfx::stats.gpuMemoryFramebuffer = GFX_SIZE_IMAGE_COLOR_BYTES( width, height, 1, GfxColorFormat_R8G8B8A8 ) );
+	if( FAILED( swapChain->ResizeBuffers( 0, width, height, DXGI_FORMAT_UNKNOWN, swapChainFlagsCreate ) ) )
+	{
+		Error( "%s: Failed to resize swap chain buffers", __FUNCTION__ );
 	}
 
-	// Create Render Target View
-	if( FAILED( device->CreateRenderTargetView( buffer, nullptr, &target_color ) ) )
+	// Rebuild Render Target & Depth Buffer
+	ID3D11Texture2D *buffer;
 	{
-		ErrorReturnMsg( false, "%s: Failed to create render target view", __FUNCTION__ );
+		// Get Back Buffer Pointer
+		if( FAILED( swapChain->GetBuffer( 0, D3D11_IID_ID3D11Texture2D, reinterpret_cast<void **>( &buffer ) ) ) )
+		{
+			Error( "%s: Failed to get swap chain buffer", __FUNCTION__ );
+		}
+
+		// Create Render Target
+		if( FAILED( device->CreateRenderTargetView( buffer, nullptr, &renderTargetColor ) ) )
+		{
+			Error( "%s: Failed to create device render target view", __FUNCTION__ );
+		}
+
+		// Bind Render Target
+		context->OMSetRenderTargets( 1, &renderTargetColor, nullptr );
+
+		// TODO: Depth buffer
+		// ...
 	}
+	buffer->Release();
 
-	// Create Raster State
-	rs_desc.FillMode = D3D11_FILL_SOLID;
-	rs_desc.CullMode = D3D11_CULL_NONE;
-	rs_desc.FrontCounterClockwise = false;
-	rs_desc.DepthBias = 0;
-	rs_desc.DepthBiasClamp = 0.0f;
-	rs_desc.SlopeScaledDepthBias = 0.0f;
-	rs_desc.DepthClipEnable = false;
-	rs_desc.MultisampleEnable = false;
-	rs_desc.AntialiasedLineEnable = false;
+	// Depth Buffer
+	#if DEPTH_BUFFER_ENABLED
+	{
+		renderTargetDepth->Release();
 
-	ID3D11RasterizerState *rs;
-	if( FAILED( device->CreateRasterizerState( &rs_desc, &rs ) ) )
+		DECL_ZERO( D3D11_TEXTURE2D_DESC, texDesc );
+		texDesc.Width = width;
+		texDesc.Height = height;
+		texDesc.MipLevels = 1;
+		texDesc.ArraySize = 1;
+		texDesc.Format = D3D11DepthStencilFormats[DEPTH_BUFFER_FORMAT].texture2DDescFormat; // TODO
+		texDesc.SampleDesc.Count = 1;
+		texDesc.SampleDesc.Quality = 0;
+		texDesc.Usage = D3D11_USAGE_DEFAULT;
+		texDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+		texDesc.CPUAccessFlags = 0;
+		texDesc.MiscFlags = 0;
+
+		ID3D11Texture2D *textureDepth = nullptr;
+		PROFILE_GFX( Gfx::stats.gpuMemoryFramebuffer += GFX_SIZE_IMAGE_DEPTH_BYTES( width, height, 1, GfxDepthFormat_R24_UINT_G8_UINT ) );
+		ErrorReturnIf( FAILED( device->CreateTexture2D( &texDesc, nullptr, &textureDepth ) ), false,
+						"%s: Failed to create depth texture 2d", __FUNCTION__ );
+
+		// Depth-Stencil View
+		DECL_ZERO( D3D11_DEPTH_STENCIL_VIEW_DESC, dsvDesc );
+		dsvDesc.Format = D3D11DepthStencilFormats[DEPTH_BUFFER_FORMAT].depthStencilViewDescFormat;
+		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		dsvDesc.Flags = 0;
+		dsvDesc.Texture2D.MipSlice = 0;
+
+		ErrorReturnIf( FAILED( device->CreateDepthStencilView( textureDepth, &dsvDesc, &renderTargetDepth ) ), false,
+						"%s: Failed to create depth render target view", __FUNCTION__ );
+	}
+	#endif
+
+	// Update Viewport
+	bGfx::rb_viewport_resize( width, height, fullscreen );
+
+	// Success
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_viewport_init( const u16 width, const u16 height, const bool fullscreen )
+{
+	// TODO: Multiple viewports
+	GfxViewport &viewportCache = bGfx::viewport;
+	viewportCache.width = width;
+	viewportCache.height = height;
+	viewportCache.fullscreen = fullscreen;
+
+	DECL_ZERO( D3D11_VIEWPORT, d3d11Viewport );
+	d3d11Viewport.TopLeftX = 0.0f;
+	d3d11Viewport.TopLeftY = 0.0f;
+	d3d11Viewport.Width = static_cast<FLOAT>( width );
+	d3d11Viewport.Height = static_cast<FLOAT>( height );
+	d3d11Viewport.MinDepth = 0.0f;
+	d3d11Viewport.MaxDepth = 1.0f;
+
+	context->RSSetViewports( 1, &d3d11Viewport );
+	return true;
+}
+
+
+bool bGfx::rb_viewport_free()
+{
+	// TODO
+	return true;
+}
+
+
+bool bGfx::rb_viewport_resize( const u16 width, const u16 height, const bool fullscreen )
+{
+	// Pass through to rb_viewport_init (TODO: Do something else?)
+	return rb_viewport_init( width, height, fullscreen );
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_set_raster_state( const GfxRasterState &state )
+{
+	// State Description
+	DECL_ZERO( D3D11_RASTERIZER_DESC, rsDesc );
+	Assert( state.fillMode < GFXFILLMODE_COUNT );
+	rsDesc.FillMode = D3D11FillModes[state.fillMode];
+	Assert( state.cullMode < GFXCULLMODE_COUNT );
+	rsDesc.CullMode = D3D11CullModes[state.cullMode];
+	rsDesc.FrontCounterClockwise = false;
+	rsDesc.DepthBias = 0;
+	rsDesc.DepthBiasClamp = 0.0f;
+	rsDesc.SlopeScaledDepthBias = 0.0f;
+	rsDesc.DepthClipEnable = false;
+	rsDesc.MultisampleEnable = false;
+	rsDesc.AntialiasedLineEnable = false;
+
+	// Create State
+	ID3D11RasterizerState *rasterizerState = nullptr;
+	if( FAILED( device->CreateRasterizerState( &rsDesc, &rasterizerState ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create rasterizer state", __FUNCTION__ );
 	}
 
-	// Create Sampler State
-	ss_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-	ss_desc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-	ss_desc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-	ss_desc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
-	ss_desc.MipLODBias = 0.0f;
-	ss_desc.MaxAnisotropy = 1;
-	ss_desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-	ss_desc.BorderColor[0] = 0.0f;
-	ss_desc.BorderColor[1] = 0.0f;
-	ss_desc.BorderColor[2] = 0.0f;
-	ss_desc.BorderColor[3] = 0.0f;
-	ss_desc.MinLOD = 0.0f;
-	ss_desc.MaxLOD = D3D11_FLOAT32_MAX;
+	context->RSSetState( rasterizerState );
+	return true;
+}
 
-	ID3D11SamplerState *ss;
-	if( FAILED( device->CreateSamplerState( &ss_desc, &ss ) ) )
+
+bool bGfx::rb_set_sampler_state( const GfxSamplerState &state )
+{
+	DECL_ZERO( D3D11_SAMPLER_DESC, ssDesc );
+	ssDesc.Filter = D3D11FilteringModes[state.filterMode];
+	ssDesc.AddressU = D3D11UVWrapModes[state.wrapMode];
+	ssDesc.AddressV = D3D11UVWrapModes[state.wrapMode];
+	ssDesc.AddressW = D3D11UVWrapModes[state.wrapMode];
+	ssDesc.MipLODBias = 0.0f;
+	ssDesc.MaxAnisotropy = 1;
+	ssDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+	ssDesc.BorderColor[0] = 0.0f;
+	ssDesc.BorderColor[1] = 0.0f;
+	ssDesc.BorderColor[2] = 0.0f;
+	ssDesc.BorderColor[3] = 0.0f;
+	ssDesc.MinLOD = 0.0f;
+	ssDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	ID3D11SamplerState *samplerState = nullptr;
+	if( FAILED( device->CreateSamplerState( &ssDesc, &samplerState ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create sampler state", __FUNCTION__ );
 	}
 
-	// Setup Blend State
-	bs_desc.AlphaToCoverageEnable = false;
-	bs_desc.IndependentBlendEnable = false;
-	bs_desc.RenderTarget[0].BlendEnable = true;
-	bs_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-	bs_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	bs_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	bs_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	bs_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
-	bs_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-	bs_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+	context->PSSetSamplers( 0, 1, &samplerState ); // TODO: Multiple sampler states (per-texture?)
+	return true;
+}
 
-	ID3D11BlendState *bs;
-	if( FAILED( device->CreateBlendState( &bs_desc, &bs ) ) )
+
+bool bGfx::rb_set_blend_state( const GfxBlendState &state )
+{
+	DECL_ZERO( D3D11_BLEND_DESC, bsDesc );
+	bsDesc.AlphaToCoverageEnable = false;
+	bsDesc.IndependentBlendEnable = false;
+	bsDesc.RenderTarget[0].BlendEnable = state.blendEnable && state.colorWriteMask;
+	bsDesc.RenderTarget[0].SrcBlend = D3D11BlendFactors[state.srcFactorColor];
+	bsDesc.RenderTarget[0].DestBlend = D3D11BlendFactors[state.dstFactorColor];
+	bsDesc.RenderTarget[0].BlendOp = D3D11BlendOperations[state.blendOperationColor];
+	bsDesc.RenderTarget[0].SrcBlendAlpha = D3D11BlendFactors[state.srcFactorAlpha];
+	bsDesc.RenderTarget[0].DestBlendAlpha = D3D11BlendFactors[state.dstFactorAlpha];
+	bsDesc.RenderTarget[0].BlendOpAlpha = D3D11BlendOperations[state.blendOperationAlpha];
+	bsDesc.RenderTarget[0].RenderTargetWriteMask = state.colorWriteMask;
+
+	ID3D11BlendState *blendState = nullptr;
+	if( FAILED( device->CreateBlendState( &bsDesc, &blendState ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create blend state", __FUNCTION__ );
 	}
 
-	// Setup Depth-Stencil State
-	ds_desc.DepthEnable = false;
-	ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-	ds_desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
-	ds_desc.StencilEnable = false;
-	ds_desc.StencilReadMask = 0;
-	ds_desc.StencilWriteMask = 0;
+	context->OMSetBlendState( blendState, nullptr, 0xFFFFFFFF );
+	return true;
+}
 
-	ID3D11DepthStencilState *ds;
-	if( FAILED( device->CreateDepthStencilState( &ds_desc, &ds ) ) )
+
+bool bGfx::rb_set_depth_state( const GfxDepthState &state )
+{
+	DECL_ZERO( D3D11_DEPTH_STENCIL_DESC, dsDesc );
+	dsDesc.DepthEnable = state.depthTestMode != GfxDepthTestMode_NONE;
+	dsDesc.DepthWriteMask = D3D11DepthWriteMasks[state.depthWriteMask];
+	dsDesc.DepthFunc = D3D11DepthTestModes[state.depthTestMode];
+	dsDesc.StencilEnable = false;
+	dsDesc.StencilReadMask = 0;
+	dsDesc.StencilWriteMask = 0;
+
+	ID3D11DepthStencilState *depthState = nullptr;
+	if( FAILED( device->CreateDepthStencilState( &dsDesc, &depthState ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create depth stencil state", __FUNCTION__ );
 	}
 
-	// Create Matrix Buffer (TODO: Refactor)
-	bf_desc.ByteWidth = sizeof( MatrixBuffer );
-	bf_desc.Usage = D3D11_USAGE_DYNAMIC;
-	bf_desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	bf_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	bf_desc.MiscFlags = 0;
-	bf_desc.StructureByteStride = 0;
+	context->OMSetDepthStencilState( depthState, 0 );
+	return true;
+}
 
-	if( FAILED( device->CreateBuffer( &bf_desc, nullptr, &matrix_buffer ) ) )
-	{
-		ErrorReturnMsg( false, "%s: Failed to create matrixMVP buffer", __FUNCTION__ );
-	}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// Create Vertex Buffer
-	bf_desc.ByteWidth = RENDER_QUAD_BATCH_SIZE * sizeof( GfxQuad<GfxVertex> ); // TODO: Refactor
-	bf_desc.Usage = D3D11_USAGE_DYNAMIC;
-	bf_desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	bf_desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+bool bGfx::rb_index_buffer_init( GfxIndexBufferResource *&resource, void *data, const u32 size, const double indToVertRatio,
+                                 const GfxIndexBufferFormat format, const GfxCPUAccessMode accessMode )
+{
+	Assert( format != GfxIndexBufferFormat_NONE );
+	Assert( format < GFXINDEXBUFFERFORMAT_COUNT );
 
-	if( FAILED( device->CreateBuffer( &bf_desc, nullptr, &vertex_buffer ) ) )
-	{
-		ErrorReturnMsg( false, "%s: Failed to create vertex buffer", __FUNCTION__ );
-	}
+	// Register IndexBuffer
+	Assert( resource == nullptr );
+	resource = indexBufferResources.make_new();
+	resource->accessMode = accessMode;
+	resource->format = format;
+	resource->indToVertRatio = indToVertRatio;
+	resource->size = size;
 
-	// Create Index Buffer
-	u16 indices[RENDER_QUAD_BATCH_SIZE * 6];
-	Gfx::quad_batch_build_indices( indices );
+	DECL_ZERO( D3D11_BUFFER_DESC, bfDesc );
+	bfDesc.ByteWidth = size;
+	bfDesc.Usage = D3D11CPUAccessModes[accessMode].d3d11Usage;
+	bfDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	bfDesc.CPUAccessFlags = D3D11CPUAccessModes[accessMode].cpuAccessFlag;
+	bfDesc.MiscFlags = 0;
+	bfDesc.StructureByteStride = 0;
 
-	bf_desc.ByteWidth = sizeof( indices );
-	bf_desc.Usage = D3D11_USAGE_IMMUTABLE;
-	bf_desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	bf_desc.CPUAccessFlags = 0;
+	DECL_ZERO( D3D11_SUBRESOURCE_DATA, bfData );
+	bfData.pSysMem = data;
 
-	bf_data.pSysMem = indices;
-
-	if( FAILED( device->CreateBuffer( &bf_desc, &bf_data, &index_buffer ) ) )
+	PROFILE_GFX( Gfx::stats.gpuMemoryIndexBuffers += size );
+	if( FAILED( device->CreateBuffer( &bfDesc, &bfData, &resource->buffer ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create index buffer", __FUNCTION__ );
 	}
 
-	// Setup Viewport
-	D3D11_VIEWPORT viewport;
-	viewport.TopLeftX = 0.0f;
-	viewport.TopLeftY = 0.0f;
-	viewport.Width = static_cast<FLOAT>( window::width );
-	viewport.Height = static_cast<FLOAT>( window::height );
-	viewport.MinDepth = 0.0f;
-	viewport.MaxDepth = 1.0f;
+	// Success
+	return true;
+}
 
-	// Setup Context State
-	context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
-	context->IASetVertexBuffers( 0, 1, &vertex_buffer, &stride, &offset );
-	context->IASetIndexBuffer( index_buffer, DXGI_FORMAT_R16_UINT, 0 );
-	context->VSSetConstantBuffers( 0, 1, &matrix_buffer );
-	context->RSSetState( rs );
-	context->RSSetViewports( 1, &viewport );
-	context->PSSetSamplers( 0, 1, &ss );
-	context->OMSetBlendState( bs, nullptr, 0xFFFFFFFF );
 
-	// Release Objects
-	factory->Release();
-	buffer->Release();
+bool bGfx::rb_index_buffer_free( GfxIndexBufferResource *&resource )
+{
+	Assert( resource != nullptr );
 
-	// Compile Shaders
-	if( !shaders::init() )
+	PROFILE_GFX( Gfx::stats.gpuMemoryIndexBuffers -= resource->size );
+
+	resource->buffer->Release();
+	resource->buffer = nullptr;
+	indexBufferResources.remove( resource->id );
+	resource = nullptr;
+
+	// Success
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_vertex_buffer_init_dynamic( GfxVertexBufferResource *&resource, const u32 vertexFormatID,
+                                          const GfxCPUAccessMode accessMode, const u32 size, const u32 stride )
+{
+	// Register VertexBuffer
+	Assert( accessMode == GfxCPUAccessMode_WRITE_DISCARD || accessMode == GfxCPUAccessMode_WRITE_NO_OVERWRITE );
+	Assert( resource == nullptr );
+	resource = vertexBufferResources.make_new();
+	resource->size = size;
+	resource->stride = stride;
+	resource->accessMode = accessMode;
+
+	DECL_ZERO( D3D11_BUFFER_DESC, bfDesc );
+	bfDesc.ByteWidth = size;
+	bfDesc.Usage = D3D11CPUAccessModes[accessMode].d3d11Usage;
+	bfDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bfDesc.CPUAccessFlags = D3D11CPUAccessModes[accessMode].cpuAccessFlag;
+	bfDesc.MiscFlags = 0;
+	bfDesc.StructureByteStride = 0;
+
+	PROFILE_GFX( Gfx::stats.gpuMemoryVertexBuffers += size );
+	if( FAILED( device->CreateBuffer( &bfDesc, nullptr, &resource->buffer ) ) )
 	{
-		ErrorReturnMsg( false, "%s: Failed to init shaders", __FUNCTION__ );
+		ErrorReturnMsg( false, "%s: Failed to create vertex buffer", __FUNCTION__ );
 	}
 
-	// Load textures (TODO: Refactor)
-	for( u16 i = 0; i < assets::texturesCount; i++ )
-	{
-		GfxTexture2D &texture = bGfx::textures2D[i];
-		const DiskTexture &diskTexture = assets::textures[i];
+	// Success
+	return true;
+}
 
-		if( !rb_texture2d_load( texture, assets::binary.data + diskTexture.offset, diskTexture.width, diskTexture.height ) )
+
+bool bGfx::rb_vertex_buffer_init_static( GfxVertexBufferResource *&resource, const u32 vertexFormatID,
+                                         const GfxCPUAccessMode accessMode, const void *const data,
+                                         const u32 size, const u32 stride )
+{
+	// TODO: Implement this
+
+	// Register VertexBuffer
+	Assert( accessMode == GfxCPUAccessMode_WRITE_DISCARD || accessMode == GfxCPUAccessMode_WRITE_NO_OVERWRITE );
+	Assert( resource == nullptr );
+	resource = vertexBufferResources.make_new();
+	resource->size = size;
+	resource->stride = stride;
+	resource->accessMode = accessMode;
+
+	DECL_ZERO( D3D11_BUFFER_DESC, bfDesc );
+	bfDesc.ByteWidth = size;
+	bfDesc.Usage = D3D11CPUAccessModes[accessMode].d3d11Usage;
+	bfDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bfDesc.CPUAccessFlags = D3D11CPUAccessModes[accessMode].cpuAccessFlag;
+	bfDesc.MiscFlags = 0;
+	bfDesc.StructureByteStride = 0;
+
+	PROFILE_GFX( Gfx::stats.gpuMemoryVertexBuffers += size );
+	if( FAILED( device->CreateBuffer( &bfDesc, nullptr, &resource->buffer ) ) )
+	{
+		ErrorReturnMsg( false, "%s: Failed to create vertex buffer", __FUNCTION__ );
+	}
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_vertex_buffer_free( GfxVertexBufferResource *&resource )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+	PROFILE_GFX( Gfx::stats.gpuMemoryVertexBuffers -= resource->size );
+
+	resource->buffer->Release();
+	resource->buffer = nullptr;
+	vertexBufferResources.remove( resource->id );
+	resource = nullptr;
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_vertex_buffer_draw( GfxVertexBufferResource *&resource )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+
+	// Unmap Vertex Buffer
+	//AssertMsg( resource->mapped, "Attempting to draw buffer mapped to the CPU! Call vertexBuffer.write_end()!" );
+
+	if( resource->mapped )
+	{
+		context->Unmap( resource->buffer, 0 );
+		resource->mapped = false;
+	}
+
+	// Submit Vertex Buffer
+	context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+	context->IASetVertexBuffers( 0, 1, &resource->buffer, &resource->stride, &resource->offset );
+	const UINT count = static_cast<UINT>( resource->current / resource->stride );
+	d3d11_draw( count, 0 );
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_vertex_buffer_draw_indexed( GfxVertexBufferResource *&resource, GfxIndexBufferResource *&resourceIndexBuffer )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+	Assert( resourceIndexBuffer != nullptr && resourceIndexBuffer->id != GFX_RESOURCE_ID_NULL );
+
+	// Unmap Vertex Buffer
+	//AssertMsg( resource->mapped, "Attempting to draw buffer mapped to the CPU! Call vertexBuffer.write_end()!" );
+
+	if( resource->mapped )
+	{
+		context->Unmap( resource->buffer, 0 );
+		resource->mapped = false;
+	}
+
+	// Submit Vertex Buffer
+	context->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+	context->IASetVertexBuffers( 0, 1, &resource->buffer, &resource->stride, &resource->offset );
+	context->IASetIndexBuffer( resourceIndexBuffer->buffer, D3D11IndexBufferFormats[resourceIndexBuffer->format], 0 ); // TODO: Cache this?
+	const UINT count = static_cast<UINT>( resource->current / resource->stride * resourceIndexBuffer->indToVertRatio );
+	d3d11_draw_indexed( count, 0, 0 );
+
+	// Success
+	return true;
+}
+
+
+void bGfx::rb_vertex_buffer_write_begin( GfxVertexBufferResource *&resource )
+{
+	if( resource->mapped == true ) { return; }
+
+	const GfxCPUAccessMode accessMode = resource->accessMode;
+	Assert( accessMode == GfxCPUAccessMode_WRITE ||
+	        accessMode == GfxCPUAccessMode_WRITE_DISCARD ||
+			accessMode == GfxCPUAccessMode_WRITE_NO_OVERWRITE )
+
+ 	DECL_ZERO( D3D11_MAPPED_SUBRESOURCE, mappedResource );
+	context->Map( resource->buffer, 0, D3D11CPUAccessModes[accessMode].d3d11Map, 0, &mappedResource );
+	resource->mapped = true;
+
+	if( accessMode == GfxCPUAccessMode_WRITE_DISCARD || resource->data == nullptr )
+	{
+		resource->data = reinterpret_cast<byte *>( mappedResource.pData );
+		resource->current = 0;
+		resource->offset = 0;
+	}
+}
+
+
+void bGfx::rb_vertex_buffer_write_end( GfxVertexBufferResource *&resource )
+{
+	if( resource->mapped == false ) { return; }
+	context->Unmap( resource->buffer, 0 );
+	resource->mapped = false;
+}
+
+
+bool bGfx::rb_vertex_buffer_write( GfxVertexBufferResource *&resource, const void *const data, const u32 size )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+	Assert( resource->mapped );
+
+	memory_copy( resource->data + resource->current, data, size );
+	resource->current += size;
+
+	// Success
+	return true;
+}
+
+
+u32 bGfx::rb_vertex_buffer_current( GfxVertexBufferResource *&resource )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+	return resource->current;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_constant_buffer_init( GfxConstantBufferResource *&resource, const char *name, const int index, const u32 size )
+{
+	// Register Constant Buffer
+	Assert( resource == nullptr );
+	resource = constantBufferResources.make_new();
+	resource->name = name;
+	resource->index = index;
+	resource->size = size;
+
+	DECL_ZERO( D3D11_BUFFER_DESC, bfDesc );
+	bfDesc.ByteWidth = size;
+	bfDesc.Usage = D3D11_USAGE_DYNAMIC;
+	bfDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bfDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	bfDesc.MiscFlags = 0;
+	bfDesc.StructureByteStride = 0;
+
+	PROFILE_GFX( Gfx::stats.gpuMemoryConstantBuffers += size );
+	if( FAILED( device->CreateBuffer( &bfDesc, nullptr, &resource->buffer ) ) )
+	{
+		ErrorReturnMsg( false, "%s: Failed to create constant buffer", __FUNCTION__ );
+	}
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_constant_buffer_free( GfxConstantBufferResource *&resource )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+
+	PROFILE_GFX( Gfx::stats.gpuMemoryConstantBuffers -= resource->size );
+
+	resource->buffer->Release();
+	resource->buffer = nullptr;
+	constantBufferResources.remove( resource->id );
+	resource = nullptr;
+
+	// Success
+	return true;
+}
+
+
+void bGfx::rb_constant_buffer_write_begin( GfxConstantBufferResource *&resource )
+{
+	if( resource->mapped == true ) { return; }
+
+ 	DECL_ZERO( D3D11_MAPPED_SUBRESOURCE, mappedResource );
+	context->Map( resource->buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource );
+
+	resource->data = reinterpret_cast<byte *>( mappedResource.pData );
+	resource->mapped = true;
+}
+
+
+void bGfx::rb_constant_buffer_write_end( GfxConstantBufferResource *&resource )
+{
+	if( resource->mapped == false ) { return; }
+	context->Unmap( resource->buffer, 0 );
+	resource->mapped = false;
+}
+
+
+bool bGfx::rb_constant_buffer_write( GfxConstantBufferResource *&resource, const void *data )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+	Assert( resource->mapped );
+	Assert( resource->data != nullptr );
+
+	memory_copy( resource->data, data, resource->size );
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_constant_buffer_bind_vertex( GfxConstantBufferResource *&resource, const int slot )
+{
+	Assert( slot >= 0 );
+	context->VSSetConstantBuffers( static_cast<UINT>( slot ), 1, &resource->buffer );
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_constant_buffer_bind_fragment( GfxConstantBufferResource *&resource, const int slot )
+{
+	Assert( slot >= 0 );
+	context->PSSetConstantBuffers( static_cast<UINT>( slot ), 1, &resource->buffer );
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_constant_buffer_bind_compute( GfxConstantBufferResource *&resource, const int slot )
+{
+	Assert( slot >= 0 );
+	context->CSSetConstantBuffers( static_cast<UINT>( slot ), 1, &resource->buffer );
+
+	// Success
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_texture_2d_init( GfxTexture2DResource *&resource, void *pixels, const u16 width, const u16 height, const GfxColorFormat &format )
+{
+	// Register Texture2D
+	Assert( resource == nullptr );
+	resource = texture2DResources.make_new();
+	resource->colorFormat = format;
+	resource->width = width;
+	resource->height = height;
+
+	// Setup Texture Description
+	DECL_ZERO( D3D11_TEXTURE2D_DESC, desc );
+	desc.Width = width;
+	desc.Height = height;
+	desc.MipLevels = 1;
+	desc.ArraySize = 1;
+	desc.Format = D3D11ColorFormats[format];
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Usage = D3D11_USAGE_IMMUTABLE;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = 0;
+	desc.MiscFlags = 0;
+
+	// Setup Texture Data
+	DECL_ZERO( D3D11_SUBRESOURCE_DATA, data );
+	data.pSysMem = pixels;
+	data.SysMemPitch = width * 4;
+	data.SysMemSlicePitch = 0;
+
+	// Create Texture
+	ID3D11Texture2D *peer = nullptr;
+	PROFILE_GFX( Gfx::stats.gpuMemoryTextures += GFX_SIZE_IMAGE_COLOR_BYTES( width, height, 1, format ) );
+	if( FAILED( device->CreateTexture2D( &desc, &data, &peer ) ) )
+	{
+		ErrorReturnMsg( false, "%s: Failed to create texture 2D", __FUNCTION__ );
+	}
+
+	// Create Texture View
+	if( FAILED( device->CreateShaderResourceView( peer, nullptr, &resource->view ) ) )
+	{
+		ErrorReturnMsg( false, "%s: Failed to create shader resource view", __FUNCTION__ );
+	}
+
+	// Release
+	peer->Release();
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_texture_2d_free( GfxTexture2DResource *&resource )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+
+	PROFILE_GFX( Gfx::stats.gpuMemoryTextures -= GFX_SIZE_IMAGE_COLOR_BYTES( resource->width, resource->height, 1, resource->colorFormat ) );
+
+	resource->view->Release();
+	resource->view = nullptr;
+	texture2DResources.remove( resource->id );
+	resource = nullptr;
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_texture_2d_bind( const GfxTexture2DResource *const &resource, const int slot )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+
+	if( textureSlots[slot] != resource->view )
+	{
+		PROFILE_GFX( Gfx::stats.frame.textureBinds++ );
+		context->VSSetShaderResources( slot, 1, &resource->view );
+		context->PSSetShaderResources( slot, 1, &resource->view );
+		textureSlots[slot] = resource->view;
+	}
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_texture_2d_release( const int slot )
+{
+    ID3D11ShaderResourceView *const pSRV[1] = { nullptr };
+    context->PSSetShaderResources( slot, 1, pSRV );
+	textureSlots[slot] = nullptr;
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static ID3D11RenderTargetView *RT_CACHE_TARGET_COLOR; // HACK: change this?
+static ID3D11DepthStencilView *RT_CACHE_TARGET_DEPTH; // HACK: change this?
+
+
+bool bGfx::rb_render_target_2d_init( GfxRenderTarget2DResource *&resource, GfxTexture2DResource *&resourceColor, GfxTexture2DResource *&resourceDepth,
+                                     const u16 width, const u16 height, const GfxRenderTargetDescription &desc )
+{
+	// Register RenderTarget2D
+	Assert( resource == nullptr );
+	resource = renderTarget2DResources.make_new();
+	resource->width = width;
+	resource->height = height;
+	resource->desc = desc;
+
+	// Color
+	{
+		// Register Resource
+		resourceColor = texture2DResources.make_new();
+
+		// Create Texture2D
+		DECL_ZERO( D3D11_TEXTURE2D_DESC, texDesc );
+		texDesc.Width = width;
+		texDesc.Height = height;
+		texDesc.MipLevels = 1;
+		texDesc.ArraySize = 1;
+		texDesc.Format = D3D11ColorFormats[desc.colorFormat];
+		texDesc.SampleDesc.Count = 1;
+		texDesc.SampleDesc.Quality = 0;
+		texDesc.Usage = D3D11_USAGE_DEFAULT;
+		texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+		texDesc.CPUAccessFlags = 0;
+		texDesc.MiscFlags = 0;
+
+		ID3D11Texture2D *textureColor = nullptr;
+		PROFILE_GFX( Gfx::stats.gpuMemoryTextures += GFX_SIZE_IMAGE_COLOR_BYTES( width, height, 1, desc.colorFormat ) );
+		ErrorReturnIf( FAILED( device->CreateTexture2D( &texDesc, nullptr, &textureColor ) ), false,
+		               "%s: Failed to create color texture 2d", __FUNCTION__ );
+
+		// Create Render Target View
+		DECL_ZERO( D3D11_RENDER_TARGET_VIEW_DESC, rtvDesc );
+		rtvDesc.Format = texDesc.Format;
+		rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+		rtvDesc.Texture2D.MipSlice = 0;
+
+		Assert( resource->targetColor == nullptr );
+		ErrorReturnIf( FAILED( device->CreateRenderTargetView( textureColor, &rtvDesc, &resource->targetColor ) ), false,
+		               "%s: Failed to create color render target view", __FUNCTION__ );
+
+		// Crate Shader Resource View
+		DECL_ZERO( D3D11_SHADER_RESOURCE_VIEW_DESC, srvDesc );
+		srvDesc.Format = D3D11ColorFormats[desc.colorFormat];
+		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = 1;
+
+		ErrorReturnIf( FAILED( device->CreateShaderResourceView( textureColor, &srvDesc, &resourceColor->view ) ), false,
+		               "%s: Failed to create color shader resource view", __FUNCTION__ );
+
+		// CPU Access
+		if( desc.cpuAccess )
 		{
-			ErrorReturnMsg( false, "%s: Failed to load Texture2D %d (%dx%d)", __FUNCTION__, i, diskTexture.width, diskTexture.height );
+			DECL_ZERO( D3D11_TEXTURE2D_DESC, stagingDesc );
+			textureColor->GetDesc( &stagingDesc );
+			stagingDesc.Usage = D3D11_USAGE_STAGING;
+			stagingDesc.BindFlags = 0;
+			stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+			PROFILE_GFX( Gfx::stats.gpuMemoryTextures += GFX_SIZE_IMAGE_COLOR_BYTES( width, height, 1, desc.colorFormat ) );
+			ErrorReturnIf( FAILED( device->CreateTexture2D( &stagingDesc, nullptr, &resource->stagingColor ) ), false,
+			               "%s: Failed to create CPU access staging texture for render target", __FUNCTION__ );
+		}
+	}
+
+	// Depth
+	if( desc.depthFormat != GfxDepthFormat_NONE )
+	{
+		// Register Resource
+		resourceDepth = texture2DResources.make_new();
+
+		// Create Texture2D
+		DECL_ZERO( D3D11_TEXTURE2D_DESC, texDesc );
+		texDesc.Width = width;
+		texDesc.Height = height;
+		texDesc.MipLevels = 1;
+		texDesc.ArraySize = 1;
+		texDesc.Format = D3D11DepthStencilFormats[desc.depthFormat].texture2DDescFormat;
+		texDesc.SampleDesc.Count = 1;
+		texDesc.SampleDesc.Quality = 0;
+		texDesc.Usage = D3D11_USAGE_DEFAULT;
+		texDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+		texDesc.CPUAccessFlags = 0;
+		texDesc.MiscFlags = 0;
+
+		ID3D11Texture2D *textureDepth = nullptr;
+		PROFILE_GFX( Gfx::stats.gpuMemoryTextures += GFX_SIZE_IMAGE_DEPTH_BYTES( width, height, 1, desc.depthFormat ) );
+		ErrorReturnIf( FAILED( device->CreateTexture2D( &texDesc, nullptr, &textureDepth ) ), false,
+		               "%s: Failed to create depth texture 2d", __FUNCTION__ );
+
+		// Depth-Stencil View
+		DECL_ZERO( D3D11_DEPTH_STENCIL_VIEW_DESC, dsvDesc );
+		dsvDesc.Format = D3D11DepthStencilFormats[desc.depthFormat].depthStencilViewDescFormat;
+		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+		dsvDesc.Flags = 0;
+		dsvDesc.Texture2D.MipSlice = 0;
+
+		Assert( resource->targetDepth == nullptr );
+		ErrorReturnIf( FAILED( device->CreateDepthStencilView( textureDepth, &dsvDesc, &resource->targetDepth ) ), false,
+		               "%s: Failed to create depth render target view", __FUNCTION__ );
+
+		// Shader Resource
+		DECL_ZERO( D3D11_SHADER_RESOURCE_VIEW_DESC, srvDesc );
+		srvDesc.Format = D3D11DepthStencilFormats[desc.depthFormat].shaderResourceViewDescFormat;
+		srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = 1;
+
+		ErrorReturnIf( FAILED( device->CreateShaderResourceView( textureDepth, &srvDesc, &resourceDepth->view ) ), false,
+		               "%s: Failed to create depth shader resource view", __FUNCTION__ );
+
+		// CPU Access
+		if( desc.cpuAccess )
+		{
+			DECL_ZERO( D3D11_TEXTURE2D_DESC, stagingDesc );
+			textureDepth->GetDesc( &stagingDesc );
+			stagingDesc.Usage = D3D11_USAGE_STAGING;
+			stagingDesc.BindFlags = 0;
+			stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+			PROFILE_GFX( Gfx::stats.gpuMemoryTextures += GFX_SIZE_IMAGE_DEPTH_BYTES( width, height, 1, desc.depthFormat ) );
+			ErrorReturnIf( FAILED( device->CreateTexture2D( &stagingDesc, nullptr, &resource->stagingDepth ) ), false,
+			               "%s: Failed to create CPU access staging texture for render target", __FUNCTION__ );
 		}
 	}
 
@@ -372,29 +1408,185 @@ bool bGfx::init()
 }
 
 
-bool bGfx::free()
+bool bGfx::rb_render_target_2d_free( GfxRenderTarget2DResource *&resource, GfxTexture2DResource *&resourceColor, GfxTexture2DResource *&resourceDepth )
+{
+	// Depth
+	if( resource->desc.depthFormat != GfxDepthFormat_NONE )
+	{
+		Assert( resourceDepth != nullptr && resourceDepth->id != GFX_RESOURCE_ID_NULL );
+		PROFILE_GFX( Gfx::stats.gpuMemoryTextures -= GFX_SIZE_IMAGE_DEPTH_BYTES( resource->width, resource->height, 1, resource->desc.depthFormat ) );
+
+		resourceDepth->view->Release();
+		resourceDepth->view = nullptr;
+		texture2DResources.remove( resourceDepth->id );
+		resourceDepth = nullptr;
+
+		if( resource->desc.cpuAccess )
+		{
+			Assert( resource->stagingDepth != nullptr );
+			PROFILE_GFX( Gfx::stats.gpuMemoryTextures -= GFX_SIZE_IMAGE_DEPTH_BYTES( resource->width, resource->height, 1, resource->desc.depthFormat ) );
+			resource->stagingDepth->Release();
+			resource->stagingDepth = nullptr;
+		}
+	}
+
+	// Color
+	{
+		Assert( resourceColor != nullptr && resourceColor->id != GFX_RESOURCE_ID_NULL );
+		PROFILE_GFX( Gfx::stats.gpuMemoryTextures -= GFX_SIZE_IMAGE_COLOR_BYTES( resource->width, resource->height, 1, resource->desc.colorFormat ) );
+
+		resourceColor->view->Release();
+		resourceColor->view = nullptr;
+		texture2DResources.remove( resourceColor->id );
+		resourceColor = nullptr;
+
+		if( resource->desc.cpuAccess )
+		{
+			Assert( resource->stagingColor != nullptr );
+			PROFILE_GFX( Gfx::stats.gpuMemoryTextures -= GFX_SIZE_IMAGE_COLOR_BYTES( resource->width, resource->height, 1, resource->desc.colorFormat ) );
+			resource->stagingColor->Release();
+			resource->stagingColor = nullptr;
+		}
+	}
+
+	// RenderTarget2D
+	{
+		Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+		resource->targetColor->Release();
+		resource->targetColor = nullptr;
+		resource->targetDepth->Release();
+		resource->targetDepth = nullptr;
+		renderTarget2DResources.remove( resource->id );
+		resource = nullptr;
+	}
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_render_target_2d_buffer_read_color( GfxRenderTarget2DResource *&resource, GfxTexture2DResource *&resourceColor, void *buffer, const u32 size )
+{
+	ErrorIf( !resource->desc.cpuAccess, "Trying to CPU access a render target that does not have CPU access flag!" );
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+	Assert( resource->stagingColor != nullptr );
+	Assert( resourceColor != nullptr && resourceColor->id != GFX_RESOURCE_ID_NULL );
+
+	const u32 srcSize = resource->width * resource->height * bGfx::colorFormatPixelSizeBytes[resource->desc.colorFormat];
+	Assert( size > 0 && srcSize <= size );
+	Assert( buffer != nullptr );
+
+	// Copy Data to Staging Texture
+	ID3D11Resource *srcResource;
+	resourceColor->view->GetResource( &srcResource );
+	context->CopyResource( resource->stagingColor, srcResource );
+	srcResource->Release();
+
+	// Map Staging Texture
+	DECL_ZERO( D3D11_MAPPED_SUBRESOURCE, mappedResource );
+	context->Map( resource->stagingColor, 0, D3D11_MAP_READ, 0, &mappedResource );
+
+	// Copy Texture Data
+	memory_copy( buffer, mappedResource.pData, srcSize );
+
+	// Unmap Staging Texture
+	context->Unmap( resource->stagingColor, 0 );
+
+	// Success
+	return true;
+}
+
+
+bool rb_render_target_2d_buffer_read_depth( GfxRenderTarget2DResource *&resource, GfxTexture2DResource *&resourceDepth, void *buffer, const u32 size )
 {
 	// Success
 	return true;
 }
 
 
-bool bGfx::shader_compile( Shader &shader, const DiskShader &diskShader )
+bool bGfx::rb_render_target_2d_buffer_write_color( GfxRenderTarget2DResource *&resource, GfxTexture2DResource *&resourceColor, const void *const buffer, const u32 size )
 {
+	ErrorIf( !resource->desc.cpuAccess, "Trying to CPU access a render target that does not have CPU access flag!" );
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+	Assert( resource->stagingColor != nullptr );
+	Assert( resourceColor != nullptr && resourceColor->id != GFX_RESOURCE_ID_NULL );
+
+	const u32 srcSize = resource->width * resource->height * bGfx::colorFormatPixelSizeBytes[resource->desc.colorFormat];
+	Assert( size > 0 && size <= srcSize );
+	Assert( buffer != nullptr );
+
+	// Map Staging Texture
+	DECL_ZERO( D3D11_MAPPED_SUBRESOURCE, mappedResource );
+	context->Map( resource->stagingColor, 0, D3D11_MAP_READ, 0, &mappedResource );
+
+	// Copy Texture Data
+	memory_copy( mappedResource.pData, buffer, srcSize );
+
+	// Unmap Staging Texture
+	context->Unmap( resource->stagingColor, 0 );
+
+	// Copy Data to Staging Texture
+	ID3D11Resource *dstResource;
+	resourceColor->view->GetResource( &dstResource );
+	context->CopyResource( dstResource, resource->stagingColor );
+	dstResource->Release();
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_render_target_2d_bind( const GfxRenderTarget2DResource *const &resource, int slot )
+{
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+
+	RT_CACHE_TARGET_COLOR = renderTargetColor;
+	RT_CACHE_TARGET_DEPTH = renderTargetDepth;
+	renderTargetColor = resource->targetColor;
+	renderTargetDepth = resource->targetDepth;
+
+	ID3D11RenderTargetView *colorTargets[1];
+	colorTargets[0] = resource->targetColor;
+	context->OMSetRenderTargets( 1, colorTargets, renderTargetDepth );
+
+	// Success
+	return true;
+}
+
+
+bool bGfx::rb_render_target_2d_release()
+{
+	renderTargetColor = RT_CACHE_TARGET_COLOR;
+	renderTargetDepth = RT_CACHE_TARGET_DEPTH;
+	context->OMSetRenderTargets( 1, &renderTargetColor, renderTargetDepth );
+
+	// Success
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bool bGfx::rb_shader_init( GfxShaderResource *&resource, const u32 shaderID, const struct DiskShader &diskShader )
+{
+	// Register Shader
+	Assert( resource == nullptr );
+	Assert( shaderID < Gfx::shadersCount );
+	resource = shaderResources.make_new();
+
 	ID3D10Blob *info;
 	ID3D10Blob *vsCode, *vsStripped;
 	ID3D10Blob *psCode, *psStripped;
 	u32 vsSize, psSize;
 
 	// Compile Vertex Shader
-	const void *codeVertex = reinterpret_cast<const void *>( assets::binary.data + diskShader.offsetVertex );
+	const void *codeVertex = reinterpret_cast<const void *>( Assets::binary.data + diskShader.offsetVertex );
 	if( FAILED( D3DCompile( codeVertex, diskShader.sizeVertex, nullptr, nullptr, nullptr, "vs_main", "vs_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &vsCode, &info ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to compile vertex shader\n\n%s", __FUNCTION__, reinterpret_cast<const char *>( info->GetBufferPointer() ) );
 	}
 
 	// Compile Fragment Shader
-	const void *codeFragment = reinterpret_cast<const void *>( assets::binary.data + diskShader.offsetFragment );
+	const void *codeFragment = reinterpret_cast<const void *>( Assets::binary.data + diskShader.offsetFragment );
 	if( FAILED( D3DCompile( codeFragment, diskShader.sizeFragment, nullptr, nullptr, nullptr, "ps_main", "ps_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &psCode, &info ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to compile fragment shader\n\n%s", __FUNCTION__, reinterpret_cast<const char *>( info->GetBufferPointer() ) );
@@ -407,29 +1599,25 @@ bool bGfx::shader_compile( Shader &shader, const DiskShader &diskShader )
 	D3DStripShader( psCode->GetBufferPointer(), psCode->GetBufferSize(), D3DCOMPILER_STRIP_REFLECTION_DATA | D3DCOMPILER_STRIP_DEBUG_INFO | D3DCOMPILER_STRIP_PRIVATE_DATA, &psStripped );
 
 	// Create Vertex Shader
-	if( FAILED( device->CreateVertexShader( vsStripped->GetBufferPointer(), vsStripped->GetBufferSize(), nullptr, &shader.vs ) ) )
+	resource->sizeVS = vsStripped->GetBufferSize();
+	PROFILE_GFX( Gfx::stats.gpuMemoryShaderPrograms += resource->sizeVS );
+	if( FAILED( device->CreateVertexShader( vsStripped->GetBufferPointer(), vsStripped->GetBufferSize(), nullptr, &resource->vs ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create vertex shader", __FUNCTION__ );
 	}
 
 	// Create Pixel Shader
-	if( FAILED( device->CreatePixelShader( psStripped->GetBufferPointer(), psStripped->GetBufferSize(), nullptr, &shader.ps ) ) )
+	resource->sizePS = psStripped->GetBufferSize();
+	PROFILE_GFX( Gfx::stats.gpuMemoryShaderPrograms += resource->sizePS );
+	if( FAILED( device->CreatePixelShader( psStripped->GetBufferPointer(), psStripped->GetBufferSize(), nullptr, &resource->ps ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create pixel shader", __FUNCTION__ );
 	}
 
-	// TODO: Custom vertex formats
-	// TODO: Generate this
-	// TODO: Generate corresponding "Vertex" struct for CPU writing/reading
-	static const D3D11_INPUT_ELEMENT_DESC desc[]
-	{
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R16G16_UNORM, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 16, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-	};
-
 	// Create Input Layout
-	if( FAILED( device->CreateInputLayout( desc, 3, vsStripped->GetBufferPointer(), vsStripped->GetBufferSize(), &shader.il ) ) )
+	D3D11VertexInputLayoutDescription desc;
+	bGfx::d3d11_vertex_input_layout_desc[Gfx::diskShaders[shaderID].vertexFormat]( desc );
+	if( FAILED( device->CreateInputLayout( desc.desc, desc.count, vsStripped->GetBufferPointer(), vsStripped->GetBufferSize(), &resource->il ) ) )
 	{
 		ErrorReturnMsg( false, "%s: Failed to create input layout", __FUNCTION__ );
 	}
@@ -439,536 +1627,36 @@ bool bGfx::shader_compile( Shader &shader, const DiskShader &diskShader )
 }
 
 
-void bGfx::shader_free( Shader &shader )
+bool bGfx::rb_shader_free( GfxShaderResource *&resource )
 {
-	shader.vs->Release();
-	shader.ps->Release();
-	shader.il->Release();
-}
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
 
+	PROFILE_GFX( Gfx::stats.gpuMemoryShaderPrograms -= resource->sizeVS );
+	PROFILE_GFX( Gfx::stats.gpuMemoryShaderPrograms -= resource->sizePS );
 
-void bGfx::rb_shader_bind( Shader &shader )
-{
-	// Bind Shaders
-	context->VSSetShader( shader.vs, nullptr, 0 );
-	context->PSSetShader( shader.ps, nullptr, 0 );
-
-	// Bind Input Layout
-	context->IASetInputLayout( shader.il );
-}
-
-
-bool bGfx::rb_texture2d_load( GfxTexture2D &texture, const void *pixels, const u16 width, const u16 height )
-{
-	// Setup Texture Description
-	D3D11_TEXTURE2D_DESC desc;
-	desc.Width = width;
-	desc.Height = height;
-	desc.MipLevels = 1;
-	desc.ArraySize = 1;
-	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	desc.SampleDesc.Count = 1;
-	desc.SampleDesc.Quality = 0;
-	desc.Usage = D3D11_USAGE_IMMUTABLE;
-	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-	desc.CPUAccessFlags = 0;
-	desc.MiscFlags = 0;
-
-	// Setup Texture Data
-	D3D11_SUBRESOURCE_DATA data;
-	data.pSysMem = pixels;
-	data.SysMemPitch = width * 4;
-	data.SysMemSlicePitch = 0;
-
-	// Create Texture
-	ID3D11Texture2D *peer;
-	if( FAILED( device->CreateTexture2D( &desc, &data, &peer ) ) )
-	{
-		ErrorReturnMsg( false, "%s: Failed to create texture 2D", __FUNCTION__ );
-	}
-
-	// Create Texture View
-	if( FAILED( device->CreateShaderResourceView( peer, nullptr, &texture.view ) ) )
-	{
-		ErrorReturnMsg( false, "%s: Failed to create shader resource view", __FUNCTION__ );
-	}
-
-	// Release
-	peer->Release();
+	resource->vs->Release();
+	resource->vs = nullptr;
+	resource->ps->Release();
+	resource->ps = nullptr;
+	resource->il->Release();
+	resource->il = nullptr;
+	shaderResources.remove( resource->id );
+	resource = nullptr;
 
 	// Success
-	texture.exists = true;
 	return true;
 }
 
 
-void bGfx::rb_texture2d_free( GfxTexture2D &texture )
+bool bGfx::rb_shader_bind( GfxShaderResource *&resource )
 {
-	// Release Texture
-	if( !texture.exists ) { return; }
-	texture.view->Release();
-	texture.exists = false;
-}
-
-
-void bGfx::rb_texture2d_bind( int slot, const GfxTexture2D &texture )
-{
-	// TODO: Multiple render targets
-	context->PSSetShaderResources( slot, 1, &texture.view );
-}
-
-
-void bGfx::rb_texture2d_unbind( int slot )
-{
-    ID3D11ShaderResourceView *const pSRV[1] = { nullptr };
-    context->PSSetShaderResources( slot, 1, pSRV );
-}
-
-
-void bGfx::rb_set_filtering_mode( GfxFilteringMode mode )
-{
-	switch( mode )
-	{
-		case GfxFilteringMode_NEAREST:
-			ss_desc.Filter = D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR;
-		break;
-
-		case GfxFilteringMode_LINEAR:
-			ss_desc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		break;
-
-		case GfxFilteringMode_ANISOTROPIC:
-			ss_desc.Filter = D3D11_FILTER_ANISOTROPIC;
-		break;
-
-		default:
-			AssertMsg( false, "rb_set_filtering_mode: unknown mode %u", mode );
-		break;
-	}
-
-	ID3D11SamplerState *ss;
-	device->CreateSamplerState( &ss_desc, &ss );
-	context->PSSetSamplers( 0, 1, &ss );
-}
-
-
-void bGfx::rb_set_depthtest_mode( GfxDepthTestMode mode )
-{
-	switch( mode )
-	{
-		case GfxDepthTestMode_NONE:
-		{
-			ds_desc.DepthEnable = false;
-			ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
-			ds_desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
-		}
-		break;
-
-		case GfxDepthTestMode_LESS:
-		{
-			ds_desc.DepthEnable = true;
-			ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-			ds_desc.DepthFunc = D3D11_COMPARISON_LESS;
-		}
-		break;
-
-		case GfxDepthTestMode_LESS_EQUALS:
-		{
-			ds_desc.DepthEnable = true;
-			ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-			ds_desc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
-		}
-		break;
-
-		case GfxDepthTestMode_ALWAYS:
-		{
-			ds_desc.DepthEnable = true;
-			ds_desc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-			ds_desc.DepthFunc = D3D11_COMPARISON_ALWAYS;
-		}
-		break;
-
-		default:
-			AssertMsg( false, "rb_set_depthtest_mode: unknown mode %u", mode );
-		break;
-	}
-
-	ID3D11DepthStencilState *ds;
-	device->CreateDepthStencilState( &ds_desc, &ds );
-	context->OMSetDepthStencilState( ds, 0 );
-}
-
-
-void bGfx::viewport_set_size( const i32 width, const i32 height, const bool fullscreen )
-{
-	// Update Viewport
-	D3D11_VIEWPORT viewport;
-	viewport.TopLeftX = 0.0f;
-	viewport.TopLeftY = 0.0f;
-	viewport.Width = static_cast<FLOAT>( width );
-	viewport.Height = static_cast<FLOAT>( height );
-	viewport.MinDepth = 0.0f;
-	viewport.MaxDepth = 1.0f;
-	context->RSSetViewports( 1, &viewport );
-}
-
-
-void bGfx::swapchain_resize( const i32 width, const i32 height, const bool fullscreen )
-{
-	// Unbind Render Target
-	context->OMSetRenderTargets( 0, nullptr, nullptr );
-
-	// Release Render Target
-	target_color->Release();
-
-	// Resize Buffers
-	if( FAILED( swap_chain->ResizeBuffers( 0, width, height, DXGI_FORMAT_UNKNOWN, swap_flags_create ) ) )
-	{
-		Error( "%s: Failed to resize swap chain buffers", __FUNCTION__ );
-	}
-
-	// Get Back Buffer Pointer
-	ID3D11Texture2D *buffer;
-	if( FAILED( swap_chain->GetBuffer( 0, IID_ID3D11Texture2D, reinterpret_cast<void **>( &buffer ) ) ) )
-	{
-		Error( "%s: Failed to get swap chain buffer", __FUNCTION__ );
-	}
-
-	// Create Render Target
-	if( FAILED( device->CreateRenderTargetView( buffer, nullptr, &target_color ) ) )
-	{
-		Error( "%s: Failed to create device render target view", __FUNCTION__ );
-	}
-
-	// Bind Render Target
-	context->OMSetRenderTargets( 1, &target_color, nullptr );
-
-	// Free Back Buffer Pointer
-	buffer->Release();
-
-	// Update Viewport
-	bGfx::viewport_set_size( width, height, fullscreen );
-}
-
-
-int bGfx::rb_shader_get_uniform( Shader &shader, const char *name )
-{
-	return 0; // D3D11 does not have uniforms (TODO: Remove these entirely?)
-}
-
-
-void bGfx::rb_shader_set_uniform_matrix( const int location, const Matrix &matrix )
-{
-	// Map Constant Buffer
-	D3D11_MAPPED_SUBRESOURCE resource;
-	context->Map( matrix_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource );
-
-	// Write Constant Buffer
-	reinterpret_cast<MatrixBuffer *>( resource.pData )->matrixMVP = matrix;
-
-	// Unmap Constant Buffer
-	context->Unmap( matrix_buffer, 0 );
-}
-
-
-void bGfx::rb_set_matrix_mvp( const Matrix &matrix )
-{
-	// Map Constant Buffer
-	D3D11_MAPPED_SUBRESOURCE resource;
-	context->Map( matrix_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource );
-
-	// Write Constant Buffer
-	reinterpret_cast<MatrixBuffer *>( resource.pData )->matrixMVP = matrix;
-
-	// Unmap Constant Buffer
-	context->Unmap( matrix_buffer, 0 );
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void Gfx::frame_begin()
-{
-	// State
-	bGfx::rendering = true;
-	bGfx::state_reset();
-
-	// Reset Render Targets
-	context->OMSetRenderTargets( 1, &target_color, nullptr );
-
-	// Begin Batch
-	quad_batch_begin();
-}
-
-
-void Gfx::frame_end()
-{
-	// Finish Batch
-	quad_batch_end();
-
-	// Swap Buffers
-	{
-		//PROFILE_SCOPE("Swapchain")
-		const bool swap = SUCCEEDED( swap_chain->Present( false/* || APP_WINDOW_FORCE_VSYNC*/, swap_flags_present ) );
-		Assert( swap );
-	}
-
-	// Reset State
-	bGfx::rendering = false;
-}
-
-
-void Gfx::clear_color( Color color )
-{
-	FLOAT rgba[4];
-	static constexpr float INV_255 = 1.0f / 255.0f;
-	rgba[0] = color.r * INV_255;
-	rgba[1] = color.g * INV_255;
-	rgba[2] = color.b * INV_255;
-	rgba[3] = color.a * INV_255;
-	context->ClearRenderTargetView( target_color, rgba );
-}
-
-
-void Gfx::clear_depth()
-{
-	if( target_depth == nullptr ) { return; }
-	context->ClearDepthStencilView( target_depth, D3D11_CLEAR_DEPTH, 1.0f, 0 );
-}
-
-
-void Gfx::quad_batch_begin()
-{
-	// Map Vertex Buffer
-	D3D11_MAPPED_SUBRESOURCE resource;
-	context->Map( vertex_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource );
-
-	bGfx::quadBatchStart = reinterpret_cast<GfxQuad<GfxVertex> *>( resource.pData );
-	bGfx::quadBatchPointer = bGfx::quadBatchStart;
-}
-
-
-void Gfx::quad_batch_end()
-{
-	// Render State
-	bGfx::state_update();
-
-	// Unmap Vertex Buffer
-	context->Unmap( vertex_buffer, 0 );
-
-	// Submit Vertex Buffer
-	if( bGfx::quadBatchStart != bGfx::quadBatchPointer )
-	{
-		UINT count = static_cast<UINT>( bGfx::quadBatchPointer - bGfx::quadBatchStart );
-		context->DrawIndexed( count * 6, 0, 0 ); // Draw Call
-	}
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void GfxSurface2D::init( const u16 width, const u16 height, const GfxSurface2DDescription &desc )
-{
-	AssertMsg( !this->exists, "Initializing surface that already exists!" );
-
-	// Color
-	{
-		// Create Texture2D
-		DECL_ZERO( D3D11_TEXTURE2D_DESC, tex_desc );
-		tex_desc.Width = width;
-		tex_desc.Height = height;
-		tex_desc.MipLevels = 1;
-		tex_desc.ArraySize = 1;
-		tex_desc.Format = D3D11ColorFormats[desc.colorFormat].texture2DDescFormat;
-		tex_desc.SampleDesc.Count = 1;
-		tex_desc.SampleDesc.Quality = 0;
-		tex_desc.Usage = D3D11_USAGE_DEFAULT;
-		tex_desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
-		tex_desc.CPUAccessFlags = 0;
-		tex_desc.MiscFlags = 0;
-
-		ID3D11Texture2D *textureColor = nullptr;
-		ErrorIf( FAILED( device->CreateTexture2D( &tex_desc, nullptr, &textureColor ) ),
-				"%s: Failed to create color texture 2d", __FUNCTION__ );
-
-		// Create Render Target View
-		DECL_ZERO( D3D11_RENDER_TARGET_VIEW_DESC, rtv_desc );
-		rtv_desc.Format = tex_desc.Format;
-		rtv_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-		rtv_desc.Texture2D.MipSlice = 0;
-
-		Assert( this->targetColor == nullptr );
-		ErrorIf( FAILED( device->CreateRenderTargetView( textureColor, &rtv_desc, &this->targetColor ) ),
-				"%s: Failed to create color render target view", __FUNCTION__ );
-
-		// Crate Shader Resource View
-		DECL_ZERO( D3D11_SHADER_RESOURCE_VIEW_DESC, sr_desc );
-		sr_desc.Format = D3D11ColorFormats[desc.colorFormat].texture2DDescFormat;
-		sr_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		sr_desc.Texture2D.MostDetailedMip = 0;
-		sr_desc.Texture2D.MipLevels = 1;
-
-		ErrorIf( FAILED( device->CreateShaderResourceView( textureColor, &sr_desc, &this->textureColor.view ) ),
-				"%s: Failed to create color shader resource view", __FUNCTION__ );
-
-		// Free textureColor
-		textureColor->Release();
-	}
-
-	// Depth
-	if( desc.depthFormat != GfxDepthFormat_NONE )
-	{
-		// Create Texture2D
-		DECL_ZERO( D3D11_TEXTURE2D_DESC, tex_desc );
-		tex_desc.Width = width;
-		tex_desc.Height = height;
-		tex_desc.MipLevels = 1;
-		tex_desc.ArraySize = 1;
-		tex_desc.Format = D3D11DepthStencilFormats[desc.depthFormat].texture2DDescFormat;
-		tex_desc.SampleDesc.Count = 1;
-		tex_desc.SampleDesc.Quality = 0;
-		tex_desc.Usage = D3D11_USAGE_DEFAULT;
-		tex_desc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-		tex_desc.CPUAccessFlags = 0;
-		tex_desc.MiscFlags = 0;
-
-		ID3D11Texture2D *textureDepth = nullptr;
-		ErrorIf( FAILED( device->CreateTexture2D( &tex_desc, nullptr, &textureDepth ) ),
-		         "%s: Failed to create depth texture 2d", __FUNCTION__ );
-
-		// Depth-Stencil View
-		DECL_ZERO( D3D11_DEPTH_STENCIL_VIEW_DESC, dsv_desc );
-		dsv_desc.Format = D3D11DepthStencilFormats[desc.depthFormat].depthStencilViewDescFormat;
-		dsv_desc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-		dsv_desc.Flags = 0;
-		dsv_desc.Texture2D.MipSlice = 0;
-
-		Assert( this->targetDepth == nullptr );
-		ErrorIf( FAILED( device->CreateDepthStencilView( textureDepth, &dsv_desc, &this->targetDepth ) ),
-				"%s: Failed to create depth render target view", __FUNCTION__ );
-
-		// Shader Resource
-		DECL_ZERO( D3D11_SHADER_RESOURCE_VIEW_DESC, sr_desc );
-		sr_desc.Format = D3D11DepthStencilFormats[desc.depthFormat].shaderResourceViewDescFormat;
-		sr_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		sr_desc.Texture2D.MostDetailedMip = 0;
-		sr_desc.Texture2D.MipLevels = 1;
-
-		ErrorIf( FAILED( device->CreateShaderResourceView( textureDepth, &sr_desc, &this->textureDepth.view ) ),
-				"%s: Failed to create depth shader resource view", __FUNCTION__ );
-
-		// Free textureDepth
-		textureDepth->Release();
-	}
-
-	// Store State
-	this->exists = true;
-	this->width = width;
-	this->height = height;
-	this->desc = desc;
-}
-
-
-void GfxSurface2D::free()
-{
-	if( !this->exists ) { return; }
-
-	// Free Color Texture
-	this->targetColor->Release();
-	this->targetColor = nullptr;
-	bGfx::rb_texture2d_free( this->textureColor );
-
-	// Free Depth Texture
-	if( this->desc.depthFormat != GfxDepthFormat_NONE )
-	{
-		this->targetDepth->Release();
-		bGfx::rb_texture2d_free( this->textureDepth );
-	}
-	this->targetDepth = nullptr;
-
-	this->exists = false;
-}
-
-// TODO: This is a hack, refactor this with proper support for render target binding
-static ID3D11RenderTargetView *SURFACE_CACHE_TARGET_COLOR;
-static ID3D11DepthStencilView *SURFACE_CACHE_TARGET_DEPTH;
-static u32 SURFACE_CACHE_VIEWPORT_WIDTH;
-static u32 SURFACE_CACHE_VIEWPORT_HEIGHT;
-static Matrix SURFACE_CACHE_MVP_MATRIX;
-static D3D11_BLEND_DESC SURFACE_CACHE_BLEND_STATE;
-
-void GfxSurface2D::bind()
-{
-	// Break Batch
-	Gfx::quad_batch_break();
-
-	// Bind Render Target
-	SURFACE_CACHE_TARGET_COLOR = target_color;
-	SURFACE_CACHE_TARGET_DEPTH = target_depth;
-	target_color = this->targetColor;
-	target_depth = this->targetDepth;
-
-	ID3D11RenderTargetView *colorTargets[1];
-	colorTargets[0] = this->targetColor;
-	context->OMSetRenderTargets( 1, colorTargets, target_depth );
-
-	// MVP Matrix
-	SURFACE_CACHE_MVP_MATRIX = bGfx::state.matrixMVP;
-	Gfx::set_matrix_mvp( matrix_build_mvp_orthographic( 0.0f, this->width, this->height, 0.0f, 0.0f, 1.0f ) );
-
-	// Viewport
-	SURFACE_CACHE_VIEWPORT_WIDTH = bGfx::viewportWidth;
-	SURFACE_CACHE_VIEWPORT_HEIGHT = bGfx::viewportHeight;
-	Gfx::viewport_set_size( this->width, this->height, false );
-
-	// D3D11 needs to explicitly update depth test state here
-	bGfx::rb_set_depthtest_mode( bGfx::state.depthTestMode );
-
-	// Blend State (TODO: Refactor)
-	SURFACE_CACHE_BLEND_STATE = bs_desc;
-	bs_desc.AlphaToCoverageEnable = false;
-	bs_desc.IndependentBlendEnable = false;
-	bs_desc.RenderTarget[0].BlendEnable = true;
-	bs_desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
-	bs_desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	bs_desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	bs_desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	bs_desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
-	bs_desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-	bs_desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-
-	ID3D11BlendState *bs;
-	if( FAILED( device->CreateBlendState( &bs_desc, &bs ) ) )
-	{
-		Error( "%s: Failed to create blend state", __FUNCTION__ );
-	}
-
-	context->OMSetBlendState( bs, nullptr, 0xFFFFFFFF );
-}
-
-
-void GfxSurface2D::release()
-{
-	// Break Batch
-	Gfx::quad_batch_break();
-
-	// Release Render Target
-	target_color = SURFACE_CACHE_TARGET_COLOR;
-	target_depth = SURFACE_CACHE_TARGET_DEPTH;
-	context->OMSetRenderTargets( 1, &target_color, target_depth );
-
-	// Reset Viewport
-	Gfx::viewport_set_size( SURFACE_CACHE_VIEWPORT_WIDTH, SURFACE_CACHE_VIEWPORT_HEIGHT, window::fullscreen );
-
-	// Reset MVP Matrix
-	Gfx::set_matrix_mvp( SURFACE_CACHE_MVP_MATRIX );
-
-	// Reset Blend State (TODO: Refactor)
-	bs_desc = SURFACE_CACHE_BLEND_STATE;
-
-	ID3D11BlendState *bs;
-	if( FAILED( device->CreateBlendState( &bs_desc, &bs ) ) )
-	{
-		Error( "%s: Failed to create blend state", __FUNCTION__ );
-	}
-
-	context->OMSetBlendState( bs, nullptr, 0xFFFFFFFF );
+	Assert( resource != nullptr && resource->id != GFX_RESOURCE_ID_NULL );
+
+	context->VSSetShader( resource->vs, nullptr, 0 );
+	context->PSSetShader( resource->ps, nullptr, 0 );
+	context->IASetInputLayout( resource->il );
+	PROFILE_GFX( Gfx::stats.frame.shaderBinds++ );
+
+	// Success
+	return true;
 }

@@ -32,9 +32,9 @@ GlyphID Glyphs::make_new( const u16 width, const u16 height )
 
 void Glyphs::write()
 {
-	Buffer &binary = assets::binary;
-	String &header = assets::header;
-	String &source = assets::source;
+	Buffer &binary = Assets::binary;
+	String &header = Assets::header;
+	String &source = Assets::source;
 
 	Timer timer;
 
@@ -53,7 +53,7 @@ void Glyphs::write()
 			"u16 u2, v2;" );
 
 		// Table
-		header.append( "namespace assets\n{\n" );
+		header.append( "namespace Assets\n{\n" );
 		header.append( "\tconstexpr u32 glyphsCount = " ).append( static_cast<int>( glyphs.size() ) ).append( ";\n" );
 		header.append( "\textern const DiskGlyph glyphs[];\n" );
 		header.append( "}\n\n" );
@@ -63,7 +63,7 @@ void Glyphs::write()
 	{
 		// Group
 		assets_group( source );
-		source.append( "namespace assets\n{\n" );
+		source.append( "namespace Assets\n{\n" );
 
 		// Table
 		char buffer[PATH_SIZE];
@@ -83,7 +83,7 @@ void Glyphs::write()
 	if( verbose_output() )
 	{
 		const usize count = glyphs.size();
-		PrintColor( LOG_CYAN, "\t\tWrote %d glyphs%s", count, count == 1 ? "s" : "" );
+		PrintColor( LOG_CYAN, "\t\tWrote %d glyph%s", count, count == 1 ? "" : "s" );
 		PrintLnColor( LOG_WHITE, " (%.3f ms)", timer.elapsed_ms() );
 	}
 }

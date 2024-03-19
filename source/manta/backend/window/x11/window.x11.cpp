@@ -21,7 +21,7 @@ static Atom WM_DELETE_WINDOW;
 static Atom _NET_WM_STATE;
 static Atom _NET_WM_STATE_FULLSCREEN;
 
-namespace iwindow
+namespace iWindow
 {
 	Display *display;
 	Window handle;
@@ -32,33 +32,33 @@ namespace iwindow
 		XSetWindowAttributes attributes;
 		XSizeHints hints;
 
-		window::width = defaultWidth;
-		window::height = defaultHeight;
-		window::resized = true;
+		Window::width = defaultWidth;
+		Window::height = defaultHeight;
+		Window::resized = true;
 
 		// Open Display
-		if( ( iwindow::display = XOpenDisplay( nullptr ) ) == nullptr )
+		if( ( iWindow::display = XOpenDisplay( nullptr ) ) == nullptr )
 			{ ErrorReturnMsg( false, "X11: Failed to open X11 display" ); }
 
 		// Setup Window Visual
-		if( ( visual = iwindow::x11_create_visual() ) == nullptr )
+		if( ( visual = iWindow::x11_create_visual() ) == nullptr )
 			{ ErrorReturnMsg( false, "X11: Failed to create X11 visual" ); }
 
 		// Setup Window Attribute
-		attributes.background_pixel = BlackPixel( iwindow::display, DefaultScreen( iwindow::display ) );
-		attributes.border_pixel = BlackPixel( iwindow::display, DefaultScreen( iwindow::display ) );
+		attributes.background_pixel = BlackPixel( iWindow::display, DefaultScreen( iWindow::display ) );
+		attributes.border_pixel = BlackPixel( iWindow::display, DefaultScreen( iWindow::display ) );
 		attributes.event_mask = KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask | StructureNotifyMask;
-		attributes.colormap = XCreateColormap( iwindow::display, DefaultRootWindow( iwindow::display ), visual->visual, AllocNone );
+		attributes.colormap = XCreateColormap( iWindow::display, DefaultRootWindow( iWindow::display ), visual->visual, AllocNone );
 
 		// Create Window
-		iwindow::handle =
+		iWindow::handle =
 			XCreateWindow(
-				iwindow::display,
-				DefaultRootWindow( iwindow::display ),
+				iWindow::display,
+				DefaultRootWindow( iWindow::display ),
 				0,
 				0,
-				window::width,
-				window::height,
+				Window::width,
+				Window::height,
 				0,
 				visual->depth,
 				InputOutput,
@@ -68,12 +68,12 @@ namespace iwindow
 			);
 
 		// Setup Atoms
-		WM_DELETE_WINDOW = XInternAtom( iwindow::display, "WM_DELETE_WINDOW", false );
-		_NET_WM_STATE = XInternAtom( iwindow::display, "_NET_WM_STATE", false );
-		_NET_WM_STATE_FULLSCREEN = XInternAtom( iwindow::display, "_NET_WM_STATE_FULLSCREEN", false );
+		WM_DELETE_WINDOW = XInternAtom( iWindow::display, "WM_DELETE_WINDOW", false );
+		_NET_WM_STATE = XInternAtom( iWindow::display, "_NET_WM_STATE", false );
+		_NET_WM_STATE_FULLSCREEN = XInternAtom( iWindow::display, "_NET_WM_STATE_FULLSCREEN", false );
 
 		// Setup Protocols
-		if( !XSetWMProtocols( iwindow::display, iwindow::handle, &WM_DELETE_WINDOW, 1 ) )
+		if( !XSetWMProtocols( iWindow::display, iWindow::handle, &WM_DELETE_WINDOW, 1 ) )
 			{ ErrorReturnMsg( false, "X11: Failed to set X11 WM protocols" ); }
 
 		// Setup Size
@@ -82,11 +82,18 @@ namespace iwindow
 		hints.min_height = WINDOW_HEIGHT_MIN;
 		hints.max_width = WINDOW_WIDTH_MAX;
 		hints.max_height = WINDOW_HEIGHT_MAX;
-		XSetWMNormalHints( iwindow::display, iwindow::handle, &hints );
+		XSetWMNormalHints( iWindow::display, iWindow::handle, &hints );
 
 		// Set Window Title
-		XStoreName( iwindow::display, iwindow::handle, PROJECT_CAPTION );
+		XStoreName( iWindow::display, iWindow::handle, PROJECT_CAPTION );
 
+		// Success
+		return true;
+	}
+
+
+	bool free()
+	{
 		// Success
 		return true;
 	}
@@ -94,7 +101,7 @@ namespace iwindow
 
 	void show()
 	{
-		XMapRaised( iwindow::display, iwindow::handle );
+		XMapRaised( iWindow::display, iWindow::handle );
 	}
 
 
@@ -102,11 +109,11 @@ namespace iwindow
 	{
 		//PROFILE_FUNCTION();
 
-		while( XPending( iwindow::display ) )
+		while( XPending( iWindow::display ) )
 		{
 			XEvent event;
 
-			XNextEvent( iwindow::display, &event );
+			XNextEvent( iWindow::display, &event );
 
 			if( XFilterEvent( &event, None ) ) { continue; }
 
@@ -115,22 +122,22 @@ namespace iwindow
 				// Window Resize
 				case ConfigureNotify:
 					// Resize
-					if( event.xconfigure.width != window::width || event.xconfigure.height != window::height )
+					if( event.xconfigure.width != Window::width || event.xconfigure.height != Window::height )
 					{
-						window::width = event.xconfigure.width;
-						window::height = event.xconfigure.height;
-						window::resized = true;
+						Window::width = event.xconfigure.width;
+						Window::height = event.xconfigure.height;
+						Window::resized = true;
 						Gfx::viewport_update();
 					}
 				break;
 
 				// The focus changed
 				case FocusIn:
-					window::hasFocus = true;
+					Window::hasFocus = true;
 				break;
 
 				case FocusOut:
-					window::hasFocus = false;
+					Window::hasFocus = false;
 				break;
 
 				// Key Press / Release
@@ -139,7 +146,7 @@ namespace iwindow
 				{
 
 					KeySym keysym = XLookupKeysym( &event.xkey, 0 );
-					ikeyboard::keyboards[ikeyboard::primary].keyCurrent[ keysym & 0xFF ] = ( event.type == KeyPress );
+					iKeyboard::keyboards[iKeyboard::primary].keyCurrent[ keysym & 0xFF ] = ( event.type == KeyPress );
 					/*
 					// Keyboard Input Text
 					if( event.type == KeyPress )
@@ -155,30 +162,30 @@ namespace iwindow
 				// Mouse Press
 				case ButtonPress:
 				{
-					imouse::mice[imouse::primary].buttonCurrent |= ( 1 << event.xbutton.button );
+					iMouse::mice[iMouse::primary].buttonCurrent |= ( 1 << event.xbutton.button );
 
 					// Mouse wheel (TODO: Button6 & Button7 for horizontal scroll wheel)
-					if( event.xbutton.button == Button4 ) { imouse::mice[imouse::primary].wheelY = -1; imouse::mice[imouse::primary].wheelYVelocity = 1.0f; }
-					if( event.xbutton.button == Button5 ) { imouse::mice[imouse::primary].wheelY =  1; imouse::mice[imouse::primary].wheelYVelocity = 1.0f; }
-					if( event.xbutton.button == 6/*Button6*/ ) { imouse::mice[imouse::primary].wheelX = -1; imouse::mice[imouse::primary].wheelXVelocity = 1.0f; }
-					if( event.xbutton.button == 7/*Button7*/ ) { imouse::mice[imouse::primary].wheelX =  1; imouse::mice[imouse::primary].wheelXVelocity = 1.0f; }
+					if( event.xbutton.button == Button4 ) { iMouse::mice[iMouse::primary].wheelY = -1; iMouse::mice[iMouse::primary].wheelYVelocity = 1.0f; }
+					if( event.xbutton.button == Button5 ) { iMouse::mice[iMouse::primary].wheelY =  1; iMouse::mice[iMouse::primary].wheelYVelocity = 1.0f; }
+					if( event.xbutton.button == 6/*Button6*/ ) { iMouse::mice[iMouse::primary].wheelX = -1; iMouse::mice[iMouse::primary].wheelXVelocity = 1.0f; }
+					if( event.xbutton.button == 7/*Button7*/ ) { iMouse::mice[iMouse::primary].wheelX =  1; iMouse::mice[iMouse::primary].wheelXVelocity = 1.0f; }
 				}
 				break;
 
 				// Mouse Release
 				case ButtonRelease:
 				{
-					imouse::mice[imouse::primary].buttonCurrent &= ~( 1 << event.xbutton.button );
+					iMouse::mice[iMouse::primary].buttonCurrent &= ~( 1 << event.xbutton.button );
 				}
 				break;
 
 				// Mouse Position
 				case MotionNotify:
 				{
-					imouse::mice[imouse::primary].xPrevious = imouse::mice[imouse::primary].x;
-					imouse::mice[imouse::primary].yPrevious = imouse::mice[imouse::primary].y;
-					imouse::mice[imouse::primary].x = static_cast<float>( event.xmotion.x );
-					imouse::mice[imouse::primary].y = static_cast<float>( event.xmotion.y );
+					iMouse::mice[iMouse::primary].xPrevious = iMouse::mice[iMouse::primary].x;
+					iMouse::mice[iMouse::primary].yPrevious = iMouse::mice[iMouse::primary].y;
+					iMouse::mice[iMouse::primary].x = static_cast<float>( event.xmotion.x );
+					iMouse::mice[iMouse::primary].y = static_cast<float>( event.xmotion.y );
 				}
 				break;
 
@@ -189,7 +196,7 @@ namespace iwindow
 					// Gracefully handle a close request from the window
 					if( event.xclient.data.l[0] == WM_DELETE_WINDOW )
 					{
-						engine::exit();
+						Engine::exit();
 						return;
 					}
 				}
@@ -197,11 +204,18 @@ namespace iwindow
 			}
 		}
 	}
+
+
+	void mouse_set_position( const int x, const int y )
+	{
+		XWarpPointer( iWindow::display, None, iWindow::handle, 0, 0, 0, 0, x, y );
+		XSync( iWindow::display, false );
+	}
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace window
+namespace Window
 {
 	void fullscreen_set( bool enabled )
 	{
@@ -216,7 +230,7 @@ namespace window
 		// the _NET_WM_STATE_FULLSCREEN atom from the _NET_WM_STATE depending
 		// on whether we're entering or exiting fullscreen.
 		event.xclient.type = ClientMessage;
-		event.xclient.window = iwindow::handle;
+		event.xclient.window = iWindow::handle;
 		event.xclient.message_type = _NET_WM_STATE;
 		event.xclient.format = 32;
 		event.xclient.data.l[0] = fullscreen;
@@ -225,9 +239,9 @@ namespace window
 		event.xclient.data.l[3] = 0;
 
 		// Send the message to the window manager.
-		XSendEvent( iwindow::display, DefaultRootWindow( iwindow::display ), false, SubstructureRedirectMask | SubstructureNotifyMask, &event );
+		XSendEvent( iWindow::display, DefaultRootWindow( iWindow::display ), false, SubstructureRedirectMask | SubstructureNotifyMask, &event );
 
 		// Don't forget to update the internal fullscreen state!
-		window::fullscreen = fullscreen;
+		Window::fullscreen = fullscreen;
 	}
 }

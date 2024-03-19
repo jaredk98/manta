@@ -39,8 +39,8 @@ PRIVATE const float border = 256.0f;
 CONSTRUCTOR( const float _size )
 {
 	size = _size;
-	speed = random::value<float>( 30.0f, 64.0f );
-	direction = random::value<float>( 360.0f );
+	speed = random<float>( 30.0f, 64.0f );
+	direction = random<float>( 360.0f );
 
 	const int side = choose( 0, 1, 2, 3 );
 	switch( side )
@@ -48,28 +48,28 @@ CONSTRUCTOR( const float _size )
 		case 0: // Left
 		{
 			x = 0 - border * 0.5f;
-			y = random::value<float>( 0.0f, static_cast<float>( window::height ) );
+			y = random<float>( 0.0f, static_cast<float>( Window::height ) );
 		}
 		break;
 
 		case 1: // Right
 		{
-			x = static_cast<float>( window::width ) + border * 0.5f;
-			y = random::value<float>( 0.0f, static_cast<float>( window::height ) );
+			x = static_cast<float>( Window::width ) + border * 0.5f;
+			y = random<float>( 0.0f, static_cast<float>( Window::height ) );
 		}
 		break;
 
 		case 2: // Top
 		{
-			x = random::value<float>( 0.0f, static_cast<float>( window::width ) );
+			x = random<float>( 0.0f, static_cast<float>( Window::width ) );
 			y = 0 - border * 0.5f;
 		}
 		break;
 
 		case 3: // Bottom
 		{
-			x = random::value<float>( 0.0f, static_cast<float>( window::width ) );
-			y = static_cast<float>( window::height ) + border * 0.5f;
+			x = random<float>( 0.0f, static_cast<float>( Window::width ) );
+			y = static_cast<float>( Window::height ) + border * 0.5f;
 		}
 		break;
 	}
@@ -86,7 +86,7 @@ CONSTRUCTOR( const float _x, const float _y, const float _direction, const float
 
 EVENT_CREATE
 {
-	rotation = random::value<float>( 360.0 );
+	rotation = random<float>( 360.0 );
 
 	health = 100.0f * size;
 }
@@ -101,7 +101,7 @@ EVENT_STEP
 
 	// Destroy
 	constexpr float border = 256.0f;
-	if( x < -border || x > static_cast<float>( window::width + border ) || y < -border || y > static_cast<float>( window::height + border ) )
+	if( x < -border || x > static_cast<float>( Window::width + border ) || y < -border || y > static_cast<float>( Window::height + border ) )
 	{
 		Scene::objects.destroy( id );
 		return;
@@ -111,7 +111,7 @@ EVENT_STEP
 	const float radiusSqr = ( radius * size ) * ( radius * size );
 	for( auto projectile : Scene::objects.objects<obj_projectile>() )
 	{
-		if( vec2_length_sqr( x, y, projectile->x, projectile->y ) < radiusSqr )
+		if( floatv2_distance_sqr( { x, y }, { projectile->x, projectile->y } ) < radiusSqr )
 		{
 			Scene::objects.destroy( projectile->id );
 			health -= 50.0f;

@@ -6,9 +6,9 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace ikeyboard
+namespace iKeyboard
 {
-	struct Keyboard
+	struct KeyboardListener
 	{
 		// API
 		inline bool check( u8 key ) { return keyCurrent[key]; }
@@ -27,26 +27,26 @@ namespace ikeyboard
 	};
 
 	constexpr u8 keyboardCount = 8;
-	extern Keyboard keyboards[keyboardCount];
+	extern KeyboardListener keyboards[keyboardCount];
 	extern u8 primary; // index into keyboards array
 }
 
 
-namespace keyboard
+namespace Keyboard
 {
-	static inline void make_primary( u8 keyboardIndex )
+	inline void make_primary( u8 keyboardIndex )
 	{
-		Assert( keyboardIndex < ikeyboard::keyboardCount );
-		ikeyboard::primary = keyboardIndex;
+		Assert( keyboardIndex < iKeyboard::keyboardCount );
+		iKeyboard::primary = keyboardIndex;
 	}
 
-	static inline bool check( u8 key ) { return ikeyboard::keyboards[ikeyboard::primary].check( key ); }
-	static inline bool check_pressed( u8 key ) { return ikeyboard::keyboards[ikeyboard::primary].check_pressed( key ); }
-	static inline bool check_pressed_repeat( u8 key ) { return ikeyboard::keyboards[ikeyboard::primary].check_pressed_repeat( key ); }
-	static inline bool check_released( u8 key ) { return ikeyboard::keyboards[ikeyboard::primary].check_released( key ); }
+	inline bool check( u8 key ) { return iKeyboard::keyboards[iKeyboard::primary].check( key ); }
+	inline bool check_pressed( u8 key ) { return iKeyboard::keyboards[iKeyboard::primary].check_pressed( key ); }
+	inline bool check_pressed_repeat( u8 key ) { return iKeyboard::keyboards[iKeyboard::primary].check_pressed_repeat( key ); }
+	inline bool check_released( u8 key ) { return iKeyboard::keyboards[iKeyboard::primary].check_released( key ); }
 
-	static inline void update( const Delta delta ) { ikeyboard::keyboards[ikeyboard::primary].update( delta ); }
-	static inline void clear() { ikeyboard::keyboards[ikeyboard::primary].clear(); }
+	inline void update( const Delta delta ) { iKeyboard::keyboards[iKeyboard::primary].update( delta ); }
+	inline void clear() { iKeyboard::keyboards[iKeyboard::primary].clear(); }
 }
 
 
@@ -300,9 +300,9 @@ enum
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace imouse
+namespace iMouse
 {
-	struct Mouse
+	struct MouseListener
 	{
 		inline bool check( u8 button ) { return ( buttonCurrent & button ); }
 		inline bool check_pressed( u8 button ) { return ( buttonCurrent & button ) && !( buttonPrevious & button ); }
@@ -331,7 +331,7 @@ namespace imouse
 	};
 
 	constexpr u8 miceCount = 8;
-	extern Mouse mice[miceCount];
+	extern MouseListener mice[miceCount];
 	extern u8 primary; // index into mice array
 }
 
@@ -357,50 +357,52 @@ enum
 };
 
 
-namespace mouse
+namespace Mouse
 {
-	static inline void make_primary( const u8 mouseIndex )
+	inline void make_primary( const u8 mouseIndex )
 	{
-		Assert( mouseIndex < imouse::miceCount );
-		imouse::primary = mouseIndex;
+		Assert( mouseIndex < iMouse::miceCount );
+		iMouse::primary = mouseIndex;
 	}
 
-	static float x() { return imouse::mice[imouse::primary].x; }
-	static float y() { return imouse::mice[imouse::primary].y; }
-	static float x_previous() { return imouse::mice[imouse::primary].xPrevious; }
-	static float y_previous() { return imouse::mice[imouse::primary].yPrevious; }
+	static float x() { return iMouse::mice[iMouse::primary].x; }
+	static float y() { return iMouse::mice[iMouse::primary].y; }
+	static float x_previous() { return iMouse::mice[iMouse::primary].xPrevious; }
+	static float y_previous() { return iMouse::mice[iMouse::primary].yPrevious; }
 
-	static inline bool check( u8 button ) { return imouse::mice[imouse::primary].check( button ); }
-	static inline bool check_pressed( u8 button ) { return imouse::mice[imouse::primary].check_pressed( button ); }
-	static inline bool check_released( u8 button ) { return imouse::mice[imouse::primary].check_released( button ); }
+	inline bool check( u8 button ) { return iMouse::mice[iMouse::primary].check( button ); }
+	inline bool check_pressed( u8 button ) { return iMouse::mice[iMouse::primary].check_pressed( button ); }
+	inline bool check_released( u8 button ) { return iMouse::mice[iMouse::primary].check_released( button ); }
 
-	static inline bool check_wheel_up() { return imouse::mice[imouse::primary].check_wheel_up(); }
-	static inline bool check_wheel_down() { return imouse::mice[imouse::primary].check_wheel_down(); }
-	static inline bool check_wheel_left() { return imouse::mice[imouse::primary].check_wheel_left(); }
-	static inline bool check_wheel_right() { return imouse::mice[imouse::primary].check_wheel_right(); }
+	inline bool check_wheel_up() { return iMouse::mice[iMouse::primary].check_wheel_up(); }
+	inline bool check_wheel_down() { return iMouse::mice[iMouse::primary].check_wheel_down(); }
+	inline bool check_wheel_left() { return iMouse::mice[iMouse::primary].check_wheel_left(); }
+	inline bool check_wheel_right() { return iMouse::mice[iMouse::primary].check_wheel_right(); }
 
-	static inline float wheel_velocity_x() { return imouse::mice[imouse::primary].wheel_velocity_x(); }
-	static inline float wheel_velocity_y() { return imouse::mice[imouse::primary].wheel_velocity_y(); }
+	inline float wheel_velocity_x() { return iMouse::mice[iMouse::primary].wheel_velocity_x(); }
+	inline float wheel_velocity_y() { return iMouse::mice[iMouse::primary].wheel_velocity_y(); }
 
-	static inline bool moved() { return imouse::mice[imouse::primary].moved(); }
+	inline bool moved() { return iMouse::mice[iMouse::primary].moved(); }
 
-	static inline void update( const Delta delta ) { imouse::mice[imouse::primary].update( delta ); }
-	static inline void clear() { imouse::mice[imouse::primary].clear(); }
+	inline void update( const Delta delta ) { iMouse::mice[iMouse::primary].update( delta ); }
+	inline void clear() { iMouse::mice[iMouse::primary].clear(); }
+
+	extern void set_position( const int x, const int y );
 }
 
 
-#define mouse_x ( mouse::x() )
-#define mouse_y ( mouse::y() )
-#define mouse_x_prev ( mouse::x_previous() )
-#define mouse_y_prev ( mouse::y_previous() )
+#define mouse_x ( Mouse::x() )
+#define mouse_y ( Mouse::y() )
+#define mouse_x_prev ( Mouse::x_previous() )
+#define mouse_y_prev ( Mouse::y_previous() )
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-namespace input
+namespace Input
 {
-	static inline void update( const Delta delta )
+	inline void update( const Delta delta )
 	{
-		keyboard::update( delta );
-		mouse::update( delta );
+		Keyboard::update( delta );
+		Mouse::update( delta );
 	}
 }

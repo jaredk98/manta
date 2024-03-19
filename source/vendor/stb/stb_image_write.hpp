@@ -153,7 +153,7 @@ LICENSE
 
 #include <vendor/stdlib.hpp>
 
-// if STB_IMAGE_WRITE_STATIC causes problems, try defining STBIWDEF to 'inline' or 'static inline'
+// if STB_IMAGE_WRITE_STATIC causes problems, try defining STBIWDEF to 'inline' or 'inline'
 #ifndef STBIWDEF
 #ifdef STB_IMAGE_WRITE_STATIC
 #define STBIWDEF  static

@@ -97,10 +97,10 @@ public:
 	#if COMPILE_DEBUG
 	~File()
 	{
-		if( error::code == 0 )
+		if( iEngine::memoryLeakDetection && iEngine::exitCode == 0 )
 		{
-			AssertMsg( data == nullptr, "ERROR: Memory leak in File (%p) (size: %f kb) (%s)", this, size / 1024.0f, filepath );
-			AssertMsg( file == nullptr, "ERROR: Opened File but did not close! (%p) (size: %f kb) (%s)", this, size / 1024.0f, filepath );
+			AssertMsg( data == nullptr, "ERROR: Memory leak in File (%p) (size: %.2f kb) (%s)", this, KB( size ), filepath );
+			AssertMsg( file == nullptr, "ERROR: Opened File but did not close! (%p) (size: %.2f kb) (%s)", this, KB( size ), filepath );
 		}
 	}
 	#endif

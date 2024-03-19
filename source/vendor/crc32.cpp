@@ -70,7 +70,7 @@ static const u32 crc32_table[] =
 };
 
 
-u32 checksum_xcrc32( const char *buffer, int size, u32 seed )
+u32 checksum_xcrc32( const char *buffer, usize size, u32 seed )
 {
 	while( size-- )
 	{
@@ -82,7 +82,7 @@ u32 checksum_xcrc32( const char *buffer, int size, u32 seed )
 }
 
 
-u32 checksum_xcrc32( const char *buffer, const int offset, int size, u32 seed )
+u32 checksum_xcrc32( const char *buffer, const int offset, usize size, u32 seed )
 {
 	return checksum_xcrc32( buffer + offset, size, seed );
 }

@@ -1,6 +1,9 @@
 #pragma once
-// This header detects the local operating system & compiler compiling the code
-// In this context, "pipeline" refers to the build pipeline (where these defines are relevant)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// This header detects the local operating system & the compiler compiling the code
+// In this context, "pipeline" refers to the _build_ pipeline (where these defines are relevant)
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
