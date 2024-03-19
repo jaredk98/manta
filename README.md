@@ -119,7 +119,7 @@ object_api.hpp provides both a reference to the available keywords of the "scrip
 
 Objects in this engine use a single-inheritence polymorphic model. Objects can inherit/extend other objects by specifying the __PARENT( name )__ keyword.
 
-This meets most needs for games that I create. Additionally, the data structure where object data is stored ensures sufficient locality for most gameplay needs: per-instance object data is allocated contiguously in memory within designed memory blocks for each object type.
+This meets most needs for games that I create. Additionally, the data structure where object data is stored ensures sufficient locality for most gameplay needs: per-instance object data is allocated contiguously in memory within designated memory blocks for each object type.
 
 If I ever need more performance (i.e., must guarantee the _best_ cache locality possible) I would question whether utilizing the object system is the right solution for the problem at hand.
 
